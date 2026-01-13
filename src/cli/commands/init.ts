@@ -1,0 +1,187 @@
+import { defineCommand } from "citty";
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+import consola from "consola";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Templates are bundled in the package
+const TEMPLATES_DIR = join(__dirname, "..", "..", "..", "templates");
+
+export const initCommand = defineCommand({
+  meta: {
+    name: "init",
+    description: "Initialize a new Ontology project",
+  },
+  args: {
+    dir: {
+      type: "positional",
+      description: "Directory to initialize (default: current directory)",
+      default: ".",
+    },
+    force: {
+      type: "boolean",
+      description: "Overwrite existing files",
+      default: false,
+    },
+  },
+  async run({ args }) {
+    const targetDir = args.dir === "." ? process.cwd() : join(process.cwd(), args.dir);
+
+    consola.info(`Initializing Ontology project in ${targetDir}`);
+
+    // Create directory if needed
+    if (!existsSync(targetDir)) {
+      mkdirSync(targetDir, { recursive: true });
+    }
+
+    // Check for existing config
+    const configPath = join(targetDir, "ontology.config.ts");
+    if (existsSync(configPath) && !args.force) {
+      consola.error("ontology.config.ts already exists. Use --force to overwrite.");
+      process.exit(1);
+    }
+
+    // Create resolvers directory
+    const resolversDir = join(targetDir, "resolvers");
+    if (!existsSync(resolversDir)) {
+      mkdirSync(resolversDir, { recursive: true });
+    }
+
+    // Write ontology.config.ts
+    const configTemplate = `import { defineOntology } from 'ont-run';
+import { z } from 'zod';
+
+export default defineOntology({
+  name: 'my-api',
+
+  environments: {
+    dev: { debug: true },
+    prod: { debug: false },
+  },
+
+  // Pluggable auth - customize this for your use case
+  auth: async (req) => {
+    const token = req.headers.get('Authorization');
+    // Return access groups based on auth
+    // This is where you'd verify JWTs, API keys, etc.
+    if (!token) return ['public'];
+    if (token === 'admin-secret') return ['admin', 'support', 'public'];
+    return ['support', 'public'];
+  },
+
+  accessGroups: {
+    public: { description: 'Unauthenticated users' },
+    support: { description: 'Support agents' },
+    admin: { description: 'Administrators' },
+  },
+
+  functions: {
+    // Example: Public function
+    healthCheck: {
+      description: 'Check API health status',
+      access: ['public', 'support', 'admin'],
+      inputs: z.object({}),
+      resolver: './resolvers/healthCheck.ts',
+    },
+
+    // Example: Restricted function
+    getUser: {
+      description: 'Get user details by ID',
+      access: ['support', 'admin'],
+      inputs: z.object({
+        userId: z.string().uuid(),
+      }),
+      resolver: './resolvers/getUser.ts',
+    },
+
+    // Example: Admin-only function
+    deleteUser: {
+      description: 'Delete a user account',
+      access: ['admin'],
+      inputs: z.object({
+        userId: z.string().uuid(),
+        reason: z.string().optional(),
+      }),
+      resolver: './resolvers/deleteUser.ts',
+    },
+  },
+});
+`;
+
+    writeFileSync(configPath, configTemplate);
+    consola.success("Created ontology.config.ts");
+
+    // Write example resolvers
+    const healthCheckResolver = `import type { ResolverContext } from 'ont-run';
+
+export default async function healthCheck(ctx: ResolverContext, args: {}) {
+  ctx.logger.info('Health check called');
+
+  return {
+    status: 'ok',
+    env: ctx.env,
+    timestamp: new Date().toISOString(),
+  };
+}
+`;
+
+    const getUserResolver = `import type { ResolverContext } from 'ont-run';
+
+interface GetUserArgs {
+  userId: string;
+}
+
+export default async function getUser(ctx: ResolverContext, args: GetUserArgs) {
+  ctx.logger.info(\`Getting user: \${args.userId}\`);
+
+  // This is where you'd query your database
+  // Example response:
+  return {
+    id: args.userId,
+    name: 'Example User',
+    email: 'user@example.com',
+    createdAt: '2025-01-01T00:00:00Z',
+  };
+}
+`;
+
+    const deleteUserResolver = `import type { ResolverContext } from 'ont-run';
+
+interface DeleteUserArgs {
+  userId: string;
+  reason?: string;
+}
+
+export default async function deleteUser(ctx: ResolverContext, args: DeleteUserArgs) {
+  ctx.logger.warn(\`Deleting user: \${args.userId}, reason: \${args.reason || 'none'}\`);
+
+  // This is where you'd delete from your database
+  // Example response:
+  return {
+    success: true,
+    deletedUserId: args.userId,
+    deletedAt: new Date().toISOString(),
+  };
+}
+`;
+
+    writeFileSync(join(resolversDir, "healthCheck.ts"), healthCheckResolver);
+    writeFileSync(join(resolversDir, "getUser.ts"), getUserResolver);
+    writeFileSync(join(resolversDir, "deleteUser.ts"), deleteUserResolver);
+    consola.success("Created example resolvers in resolvers/");
+
+    // Instructions
+    console.log("\n");
+    consola.box(
+      "Ontology project initialized!\n\n" +
+        "Next steps:\n" +
+        "  1. Review ontology.config.ts and customize\n" +
+        "  2. Run `bunx ont-run review` to approve the initial topology\n" +
+        "  3. Run `bunx ont-run start` to start the API and MCP servers\n\n" +
+        "Your API will be available at http://localhost:3000"
+    );
+  },
+});
