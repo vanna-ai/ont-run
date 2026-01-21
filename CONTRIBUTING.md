@@ -23,8 +23,17 @@ cd test-project
 # Review topology
 bun run ../bin/ont.ts review --auto-approve
 
-# Start the server
+# Start the API server only (no MCP)
 bun run ../bin/ont.ts start --api-only
+
+# Server mode flags:
+#   --api-only   → REST API only (default port 3000)
+#   --mcp-only   → MCP server only (default port 3001)
+#   (neither)    → Both servers
+#
+# Port flags:
+#   --port       → REST API port (default 3000)
+#   --mcp-port   → MCP server port (default 3001)
 ```
 
 ## Project Structure

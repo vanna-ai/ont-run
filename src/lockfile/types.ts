@@ -1,4 +1,14 @@
 /**
+ * A field that references another function for its options
+ */
+export interface FieldReference {
+  /** Path to the field in the schema, e.g., "status" or "filters.country" */
+  path: string;
+  /** Name of the function that provides options for this field */
+  functionName: string;
+}
+
+/**
  * Snapshot of a function's topology (what matters for security review)
  */
 export interface FunctionTopology {
@@ -6,8 +16,14 @@ export interface FunctionTopology {
   description: string;
   /** Sorted list of access groups */
   access: string[];
+  /** Sorted list of entities this function relates to */
+  entities: string[];
   /** JSON Schema representation of the input schema */
   inputsSchema: Record<string, unknown>;
+  /** JSON Schema representation of the output schema */
+  outputsSchema?: Record<string, unknown>;
+  /** Fields that reference other functions for their options */
+  fieldReferences?: FieldReference[];
 }
 
 /**
@@ -18,6 +34,8 @@ export interface TopologySnapshot {
   name: string;
   /** Sorted list of access group names */
   accessGroups: string[];
+  /** Sorted list of entity names */
+  entities?: string[];
   /** Function topologies keyed by name */
   functions: Record<string, FunctionTopology>;
 }
@@ -47,6 +65,11 @@ export interface FunctionChange {
   oldDescription?: string;
   newDescription?: string;
   inputsChanged?: boolean;
+  outputsChanged?: boolean;
+  entitiesChanged?: boolean;
+  oldEntities?: string[];
+  newEntities?: string[];
+  fieldReferencesChanged?: boolean;
 }
 
 /**
@@ -59,6 +82,10 @@ export interface TopologyDiff {
   addedGroups: string[];
   /** Removed access groups */
   removedGroups: string[];
+  /** Added entities */
+  addedEntities: string[];
+  /** Removed entities */
+  removedEntities: string[];
   /** Function changes */
   functions: FunctionChange[];
   /** The new topology (for writing to lockfile on approve) */

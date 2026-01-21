@@ -1,0 +1,80 @@
+---
+title: ont
+description: Ontology-first backends with human-approved AI access & edits
+template: splash
+hero:
+  tagline: Define your business as an ontology. Build it with AI.
+  actions:
+    - text: Get Started
+      link: /getting-started/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/anthropics/ont
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## What is ont?
+
+Your ontology is your business in code—what exists, what can be done, who can do it.
+
+**ont** is a framework where:
+
+1. You define your **business structure** as an ontology — entities, functions, access groups
+2. AI agents implement the logic and call your functions via MCP
+3. Humans approve any changes to the topology (the shape of your business)
+
+The topology is your operational DNA. AI writes code, but only humans change what the business *is*.
+
+## Key Features
+
+<CardGrid stagger>
+  <Card title="Ontology-First" icon="document">
+    Define your business structure—entities, functions, access groups—in a single declarative config.
+  </Card>
+  <Card title="Human-in-the-Loop" icon="approve-check">
+    Topology changes require human approval. AI builds the logic, but only humans change what the business *is*.
+  </Card>
+  <Card title="MCP Integration" icon="puzzle">
+    Functions are automatically exposed as MCP tools. AI agents see only what they're allowed to call.
+  </Card>
+  <Card title="Type-Safe" icon="seti:typescript">
+    Full TypeScript support with Zod schemas for runtime validation.
+  </Card>
+</CardGrid>
+
+## Quick Example
+
+```typescript
+import { defineOntology, fieldFrom, z } from 'ont';
+
+export default defineOntology({
+  name: 'my-api',
+
+  accessGroups: {
+    public: { description: 'Unauthenticated users' },
+    admin: { description: 'Administrators' },
+  },
+
+  entities: {
+    User: { description: 'A user account' },
+  },
+
+  functions: {
+    getUser: {
+      description: 'Get user by ID',
+      access: ['admin'],
+      entities: ['User'],
+      inputs: z.object({ id: z.string().uuid() }),
+      outputs: z.object({
+        id: z.string(),
+        name: z.string(),
+        email: z.string(),
+      }),
+      resolver: './resolvers/getUser.ts',
+    },
+  },
+});
+```

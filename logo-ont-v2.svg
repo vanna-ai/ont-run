@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="OntLogoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#8b5cf6"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Left bracket < (solid chunky style matching Vanna V) -->
+  <path
+    d="M 100 512
+       L 280 240
+       L 360 240
+       L 220 460
+       L 220 564
+       L 360 784
+       L 280 784
+       L 100 512
+       Z"
+    fill="url(#OntLogoGradient)"
+    fill-rule="nonzero"
+  />
+
+  <!-- Right bracket > (solid chunky style matching Vanna V) -->
+  <path
+    d="M 924 512
+       L 744 240
+       L 664 240
+       L 804 460
+       L 804 564
+       L 664 784
+       L 744 784
+       L 924 512
+       Z"
+    fill="url(#OntLogoGradient)"
+    fill-rule="nonzero"
+  />
+
+  <!-- Center circle o (thick ring) -->
+  <path
+    d="M 512 320
+       A 192 192 0 1 1 511.99 320
+       Z
+       M 512 400
+       A 112 112 0 1 0 512.01 400
+       Z"
+    fill="url(#OntLogoGradient)"
+    fill-rule="evenodd"
+  />
+</svg>

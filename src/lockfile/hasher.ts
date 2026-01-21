@@ -1,7 +1,65 @@
 import { createHash } from "crypto";
+import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { OntologyConfig } from "../config/types.js";
-import type { TopologySnapshot, FunctionTopology } from "./types.js";
+import { getFieldFromMetadata } from "../config/categorical.js";
+import type {
+  TopologySnapshot,
+  FunctionTopology,
+  FieldReference,
+} from "./types.js";
+
+/**
+ * Recursively extract fieldFrom references from a Zod schema
+ */
+function extractFieldReferences(
+  schema: z.ZodType<unknown>,
+  path: string = ""
+): FieldReference[] {
+  const results: FieldReference[] = [];
+
+  // Check if this schema has fieldFrom metadata
+  const metadata = getFieldFromMetadata(schema);
+  if (metadata) {
+    results.push({
+      path: path || "(root)",
+      functionName: metadata.functionName,
+    });
+  }
+
+  // Handle ZodObject - recurse into properties
+  if (schema instanceof z.ZodObject) {
+    const shape = schema.shape;
+    for (const [key, value] of Object.entries(shape)) {
+      const fieldPath = path ? `${path}.${key}` : key;
+      results.push(
+        ...extractFieldReferences(value as z.ZodType<unknown>, fieldPath)
+      );
+    }
+  }
+
+  // Handle ZodOptional - unwrap
+  if (schema instanceof z.ZodOptional) {
+    results.push(...extractFieldReferences(schema.unwrap(), path));
+  }
+
+  // Handle ZodNullable - unwrap
+  if (schema instanceof z.ZodNullable) {
+    results.push(...extractFieldReferences(schema.unwrap(), path));
+  }
+
+  // Handle ZodArray - recurse into element
+  if (schema instanceof z.ZodArray) {
+    results.push(...extractFieldReferences(schema.element, `${path}[]`));
+  }
+
+  // Handle ZodDefault - unwrap
+  if (schema instanceof z.ZodDefault) {
+    results.push(...extractFieldReferences(schema._def.innerType, path));
+  }
+
+  return results;
+}
 
 /**
  * Extract the topology from an OntologyConfig.
@@ -9,7 +67,10 @@ import type { TopologySnapshot, FunctionTopology } from "./types.js";
  * - Function names
  * - Access lists
  * - Input schemas
+ * - Output schemas
  * - Descriptions
+ * - Entities
+ * - Field references (fieldFrom)
  *
  * It DOES NOT include:
  * - Resolver paths (so resolver code can change freely)
@@ -35,11 +96,32 @@ export function extractTopology(config: OntologyConfig): TopologySnapshot {
       inputsSchema = { type: "unknown" };
     }
 
+    // Convert outputs schema if present
+    let outputsSchema: Record<string, unknown> | undefined;
+    if (fn.outputs) {
+      try {
+        outputsSchema = zodToJsonSchema(fn.outputs, {
+          $refStrategy: "none",
+        }) as Record<string, unknown>;
+        delete outputsSchema.$schema;
+      } catch {
+        outputsSchema = { type: "unknown" };
+      }
+    }
+
+    // Extract field references
+    const fieldReferences = extractFieldReferences(fn.inputs);
+
     functions[name] = {
       description: fn.description,
       // Sort access groups for consistent hashing
       access: [...fn.access].sort(),
+      // Sort entities for consistent hashing
+      entities: [...fn.entities].sort(),
       inputsSchema,
+      outputsSchema,
+      fieldReferences:
+        fieldReferences.length > 0 ? fieldReferences : undefined,
     };
   }
 
@@ -47,6 +129,10 @@ export function extractTopology(config: OntologyConfig): TopologySnapshot {
     name: config.name,
     // Sort access groups for consistent hashing
     accessGroups: Object.keys(config.accessGroups).sort(),
+    // Sort entities for consistent hashing
+    entities: config.entities
+      ? Object.keys(config.entities).sort()
+      : undefined,
     functions,
   };
 }

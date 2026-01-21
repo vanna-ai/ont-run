@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getFieldFromMetadata } from "./categorical.js";
 
 /**
  * Schema for environment configuration
@@ -13,6 +14,13 @@ export const EnvironmentConfigSchema = z
  * Schema for access group configuration
  */
 export const AccessGroupConfigSchema = z.object({
+  description: z.string(),
+});
+
+/**
+ * Schema for entity definition
+ */
+export const EntityDefinitionSchema = z.object({
   description: z.string(),
 });
 
@@ -35,9 +43,15 @@ function isZodSchema(val: unknown): boolean {
 export const FunctionDefinitionSchema = z.object({
   description: z.string(),
   access: z.array(z.string()).min(1),
+  entities: z.array(z.string()),
   inputs: z.custom<z.ZodType>(isZodSchema, {
     message: "inputs must be a Zod schema",
   }),
+  outputs: z
+    .custom<z.ZodType>(isZodSchema, {
+      message: "outputs must be a Zod schema",
+    })
+    .optional(),
   resolver: z.string(),
 });
 
@@ -57,13 +71,16 @@ export const OntologyConfigSchema = z.object({
   environments: z.record(z.string(), EnvironmentConfigSchema),
   auth: z.function(),
   accessGroups: z.record(z.string(), AccessGroupConfigSchema),
+  entities: z.record(z.string(), EntityDefinitionSchema).optional(),
   functions: z.record(z.string(), FunctionDefinitionSchema),
 });
 
 /**
  * Validate that all function access groups exist in accessGroups
  */
-export function validateAccessGroups(config: z.infer<typeof OntologyConfigSchema>): void {
+export function validateAccessGroups(
+  config: z.infer<typeof OntologyConfigSchema>
+): void {
   const validGroups = new Set(Object.keys(config.accessGroups));
 
   for (const [fnName, fn] of Object.entries(config.functions)) {
@@ -72,6 +89,106 @@ export function validateAccessGroups(config: z.infer<typeof OntologyConfigSchema
         throw new Error(
           `Function "${fnName}" references unknown access group "${group}". ` +
             `Valid groups: ${[...validGroups].join(", ")}`
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Validate that all function entity references exist in entities
+ */
+export function validateEntityReferences(
+  config: z.infer<typeof OntologyConfigSchema>
+): void {
+  const validEntities = config.entities
+    ? new Set(Object.keys(config.entities))
+    : new Set<string>();
+
+  for (const [fnName, fn] of Object.entries(config.functions)) {
+    for (const entity of fn.entities) {
+      if (!validEntities.has(entity)) {
+        const validList =
+          validEntities.size > 0
+            ? [...validEntities].join(", ")
+            : "(none defined)";
+        throw new Error(
+          `Function "${fnName}" references unknown entity "${entity}". ` +
+            `Valid entities: ${validList}`
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Recursively extract fieldFrom references from a Zod schema
+ */
+function extractFieldFromRefs(
+  schema: z.ZodType<unknown>,
+  path: string = ""
+): Array<{ path: string; functionName: string }> {
+  const results: Array<{ path: string; functionName: string }> = [];
+
+  // Check if this schema has fieldFrom metadata
+  const metadata = getFieldFromMetadata(schema);
+  if (metadata) {
+    results.push({
+      path: path || "(root)",
+      functionName: metadata.functionName,
+    });
+  }
+
+  // Handle ZodObject - recurse into properties
+  if (schema instanceof z.ZodObject) {
+    const shape = schema.shape;
+    for (const [key, value] of Object.entries(shape)) {
+      const fieldPath = path ? `${path}.${key}` : key;
+      results.push(
+        ...extractFieldFromRefs(value as z.ZodType<unknown>, fieldPath)
+      );
+    }
+  }
+
+  // Handle ZodOptional - unwrap
+  if (schema instanceof z.ZodOptional) {
+    results.push(...extractFieldFromRefs(schema.unwrap(), path));
+  }
+
+  // Handle ZodNullable - unwrap
+  if (schema instanceof z.ZodNullable) {
+    results.push(...extractFieldFromRefs(schema.unwrap(), path));
+  }
+
+  // Handle ZodArray - recurse into element
+  if (schema instanceof z.ZodArray) {
+    results.push(...extractFieldFromRefs(schema.element, `${path}[]`));
+  }
+
+  // Handle ZodDefault - unwrap
+  if (schema instanceof z.ZodDefault) {
+    results.push(...extractFieldFromRefs(schema._def.innerType, path));
+  }
+
+  return results;
+}
+
+/**
+ * Validate that all fieldFrom() references point to existing functions
+ */
+export function validateFieldFromReferences(
+  config: z.infer<typeof OntologyConfigSchema>
+): void {
+  const validFunctions = new Set(Object.keys(config.functions));
+
+  for (const [fnName, fn] of Object.entries(config.functions)) {
+    const refs = extractFieldFromRefs(fn.inputs);
+
+    for (const ref of refs) {
+      if (!validFunctions.has(ref.functionName)) {
+        throw new Error(
+          `Function "${fnName}" field "${ref.path}" references unknown function "${ref.functionName}" via fieldFrom(). ` +
+            `Valid functions: ${[...validFunctions].join(", ")}`
         );
       }
     }

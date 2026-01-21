@@ -105,3 +105,55 @@ export async function checkLockfile(
 
   return { match: false, lockfile, currentHash };
 }
+
+/**
+ * Result of lockfile validation
+ */
+export interface LockfileValidationResult {
+  /** Status of the lockfile check */
+  status: "valid" | "missing" | "mismatch";
+  /** The diff if there are changes (only present for 'mismatch' status) */
+  diff?: import("./types.js").TopologyDiff;
+  /** Human-readable message */
+  message: string;
+}
+
+/**
+ * Validate the lockfile against the current topology.
+ * This is the main entry point for library use.
+ *
+ * @param configDir - Directory containing the ontology.config.ts
+ * @param currentTopology - The current topology snapshot
+ * @param currentHash - The current topology hash
+ */
+export async function validateLockfile(
+  configDir: string,
+  currentTopology: TopologySnapshot,
+  currentHash: string
+): Promise<LockfileValidationResult> {
+  const { diffTopology } = await import("./differ.js");
+
+  if (!lockfileExists(configDir)) {
+    return {
+      status: "missing",
+      message: "No ont.lock file found. Run `bun run review` to approve the initial topology.",
+    };
+  }
+
+  const lockfile = await readLockfile(configDir);
+  const oldTopology = lockfile?.topology || null;
+  const diff = diffTopology(oldTopology, currentTopology);
+
+  if (!diff.hasChanges) {
+    return {
+      status: "valid",
+      message: "Lockfile is up to date.",
+    };
+  }
+
+  return {
+    status: "mismatch",
+    diff,
+    message: "Topology has changed since last review. Run `bun run review` to approve changes.",
+  };
+}

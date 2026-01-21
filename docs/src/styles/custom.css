@@ -1,0 +1,7 @@
+/* Custom styles for ont docs */
+
+:root {
+  --sl-color-accent-low: #1a1a2e;
+  --sl-color-accent: #4f46e5;
+  --sl-color-accent-high: #818cf8;
+}

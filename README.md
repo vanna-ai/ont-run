@@ -1,6 +1,6 @@
 # Ontology
 
-**Backend-as-a-Service with AI-safe governance.**
+**Define your business as an ontology. Build it with AI.**
 
 Ontology generates REST APIs and MCP servers from a single declarative config, with built-in access control that prevents AI agents from escalating privileges.
 
@@ -22,16 +22,21 @@ export default defineOntology({
     public: { description: 'Unauthenticated users' },
     admin: { description: 'Administrators' },
   },
+  entities: {
+    Product: { description: 'A product in the catalog' },
+  },
   functions: {
     getProduct: {
       description: 'Get product by ID',
       access: ['public', 'admin'],
+      entities: ['Product'],
       inputs: z.object({ id: z.string() }),
       resolver: './resolvers/getProduct.ts',
     },
     deleteProduct: {
       description: 'Delete a product',
       access: ['admin'],  // AI cannot add 'public' here without review
+      entities: ['Product'],
       inputs: z.object({ id: z.string() }),
       resolver: './resolvers/deleteProduct.ts',
     },
@@ -41,14 +46,23 @@ export default defineOntology({
 
 ## Why Ontology?
 
-When AI agents help build your backend, you need guardrails. Ontology separates your backend into two layers:
+Your ontology isn't just an API definition—it's your business in code:
 
-| Layer | What it controls | Who can modify |
-|-------|------------------|----------------|
-| **Topology** | Access groups, function signatures, permissions | Humans only (requires `ont-run review`) |
-| **Logic** | Resolver implementations, business logic | AI agents freely |
+- **Entities** define what your business operates on (Users, Orders, Products)
+- **Functions** define what your business can do (createOrder, processPayment)
+- **Access groups** define who can do what (admin, support, public)
+- **Relationships** show how concepts connect (fieldFrom, entity tags)
 
-This means an AI can refactor your code, fix bugs, and add logging—but cannot grant public access to admin functions without explicit human approval.
+This is your operational DNA. The topology—the shape of what exists and who can access it—is often more valuable than the implementation code itself.
+
+### Two Layers
+
+| Layer | Contains | Who modifies |
+|-------|----------|--------------|
+| **Topology** | Entities, functions, access, relationships | Humans only (`ont-run review`) |
+| **Logic** | Resolver implementations | AI agents freely |
+
+AI can write your business logic. But only humans can change what the business *is*.
 
 ## Installation
 
@@ -69,6 +83,8 @@ bunx ont-run start
 # Node.js
 npx ont-run start
 ```
+
+Under the hood, Ontology uses [Hono](https://hono.dev/) as its web framework for both the REST API and MCP servers.
 
 ## Quick Start
 
@@ -150,11 +166,18 @@ export default defineOntology({
     admin: { description: 'Administrators' },
   },
 
+  // Optional: Define entities (domain concepts)
+  entities: {
+    User: { description: 'A user account' },
+    Order: { description: 'A customer order' },
+  },
+
   // Required: Define your functions
   functions: {
     functionName: {
       description: 'What this function does',
       access: ['public', 'user', 'admin'],  // Who can call it
+      entities: ['User'],                    // Which entities this relates to
       inputs: z.object({ /* Zod schema */ }),
       resolver: './resolvers/functionName.ts',
     },
@@ -210,6 +233,69 @@ functions: {
   },
 }
 ```
+
+### Entities
+
+Entities categorize functions by the domain objects they relate to:
+
+```typescript
+entities: {
+  User: { description: 'A user account' },
+  Order: { description: 'A customer order' },
+},
+
+functions: {
+  getUser: {
+    entities: ['User'],
+    // ...
+  },
+  createOrder: {
+    entities: ['User', 'Order'],  // Touches multiple entities
+    // ...
+  },
+}
+```
+
+This helps with:
+- **Visual review**: See all functions that touch a concept
+- **AI discovery**: Agents understand your API structure
+- **Documentation**: Functions grouped by domain area
+
+### Field References
+
+Use `fieldFrom()` to create fields that get their options from other functions:
+
+```typescript
+import { defineOntology, fieldFrom, z } from 'ont-run';
+
+functions: {
+  // Options provider
+  getUserStatuses: {
+    description: 'Get available statuses',
+    access: ['admin'],
+    entities: [],
+    inputs: z.object({}),
+    outputs: z.array(z.object({ value: z.string(), label: z.string() })),
+    resolver: './resolvers/getUserStatuses.ts',
+  },
+
+  // Uses those options
+  updateUser: {
+    description: 'Update a user',
+    access: ['admin'],
+    entities: ['User'],
+    inputs: z.object({
+      userId: z.string(),
+      status: fieldFrom('getUserStatuses'),  // Options from another function
+    }),
+    resolver: './resolvers/updateUser.ts',
+  },
+}
+```
+
+Two modes:
+- **Bulk**: Source function has empty inputs → all options fetched at once
+- **Autocomplete**: Source function has a `query` input → options searched dynamically
 
 ## Writing Resolvers
 
@@ -363,47 +449,51 @@ When you run `ont-run start`:
 
 ## MCP Integration
 
-Ontology automatically generates an MCP (Model Context Protocol) server alongside your REST API.
+Ontology automatically generates an MCP (Model Context Protocol) server alongside your REST API. The MCP server uses HTTP with SSE (Server-Sent Events) transport.
 
-### Starting the MCP Server
+### Starting the Servers
 
 ```bash
-# Start both API and MCP
+# Start both API (port 3000) and MCP (port 3001)
 bunx ont-run start
 
-# MCP only (for Claude Desktop integration)
-bunx ont-run start --mcp-only --mcp-access admin
+# Custom ports
+bunx ont-run start --port 8000 --mcp-port 8001
+
+# MCP only
+bunx ont-run start --mcp-only --mcp-port 3001
+
+# API only
+bunx ont-run start --api-only --port 3000
 ```
 
-### Claude Desktop Configuration
+### MCP Server Endpoints
 
-Add to your Claude Desktop config:
+| Endpoint | Description |
+|----------|-------------|
+| `GET /sse` | SSE connection for MCP protocol |
+| `POST /message` | Client-to-server messages |
+| `GET /health` | Health check |
 
-```json
-{
-  "mcpServers": {
-    "my-api": {
-      "command": "bunx",
-      "args": ["ont", "start", "--mcp-only", "--mcp-access", "admin"],
-      "cwd": "/path/to/your/project"
-    }
-  }
-}
-```
+### Connecting MCP Clients
+
+The MCP server URL is: `http://localhost:3001/sse`
+
+For MCP clients that support remote servers, configure the SSE endpoint URL.
 
 ### Access Control in MCP
 
-The `--mcp-access` flag determines which tools are available to the AI:
+The `--mcp-access` flag determines which tools are available:
 
 ```bash
 # Only public tools
-bunx ont-run start --mcp-only --mcp-access public
+bunx ont-run start --mcp-access public
 
 # Support-level tools
-bunx ont-run start --mcp-only --mcp-access support,public
+bunx ont-run start --mcp-access support,public
 
-# All tools
-bunx ont-run start --mcp-only --mcp-access admin,support,public
+# All tools (default)
+bunx ont-run start --mcp-access admin,support,public
 ```
 
 ## API Reference

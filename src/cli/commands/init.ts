@@ -173,14 +173,53 @@ export default async function deleteUser(ctx: ResolverContext, args: DeleteUserA
     writeFileSync(join(resolversDir, "deleteUser.ts"), deleteUserResolver);
     consola.success("Created example resolvers in resolvers/");
 
+    // Write server.ts
+    const serverTemplate = `import { startOnt } from 'ont-run';
+
+await startOnt();
+`;
+
+    writeFileSync(join(targetDir, "server.ts"), serverTemplate);
+    consola.success("Created server.ts");
+
+    // Write package.json
+    const packageJsonPath = join(targetDir, "package.json");
+    let packageJson: Record<string, unknown> = {};
+
+    if (existsSync(packageJsonPath)) {
+      try {
+        packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
+      } catch {
+        // If parsing fails, start fresh
+      }
+    }
+
+    // Merge in our scripts and dependencies
+    packageJson.type = "module";
+    packageJson.scripts = {
+      ...(packageJson.scripts as Record<string, string> || {}),
+      dev: "bun run server.ts",
+      start: "NODE_ENV=production bun run server.ts",
+      review: "bunx ont-run review",
+    };
+    packageJson.dependencies = {
+      ...(packageJson.dependencies as Record<string, string> || {}),
+      "ont-run": "latest",
+      zod: "^3.24.0",
+    };
+
+    writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+    consola.success("Updated package.json with scripts and dependencies");
+
     // Instructions
     console.log("\n");
     consola.box(
       "Ontology project initialized!\n\n" +
         "Next steps:\n" +
-        "  1. Review ontology.config.ts and customize\n" +
-        "  2. Run `bunx ont-run review` to approve the initial topology\n" +
-        "  3. Run `bunx ont-run start` to start the API and MCP servers\n\n" +
+        "  1. Run `bun install` to install dependencies\n" +
+        "  2. Review ontology.config.ts and customize\n" +
+        "  3. Run `bun run review` to approve the initial topology\n" +
+        "  4. Run `bun run dev` to start the servers\n\n" +
         "Your API will be available at http://localhost:3000"
     );
   },

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Teal to Navy gradient (Vanna brand) -->
+    <linearGradient id="OntLogoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#15a8a8"/>
+      <stop offset="100%" style="stop-color:#023d60"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Left bracket < -->
+  <path
+    d="M 280 512
+       L 120 512
+       L 280 280
+       L 340 340
+       L 220 512
+       L 340 684
+       L 280 744
+       L 120 512
+       Z"
+    fill="url(#OntLogoGradient)"
+    fill-rule="nonzero"
+  />
+
+  <!-- Right bracket > -->
+  <path
+    d="M 744 512
+       L 904 512
+       L 744 280
+       L 684 340
+       L 804 512
+       L 684 684
+       L 744 744
+       L 904 512
+       Z"
+    fill="url(#OntLogoGradient)"
+    fill-rule="nonzero"
+  />
+
+  <!-- Center circle o -->
+  <circle
+    cx="512"
+    cy="512"
+    r="140"
+    fill="none"
+    stroke="url(#OntLogoGradient)"
+    stroke-width="60"
+  />
+</svg>

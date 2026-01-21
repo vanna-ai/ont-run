@@ -1,9 +1,15 @@
-import { OntologyConfigSchema, validateAccessGroups } from "./schema.js";
+import {
+  OntologyConfigSchema,
+  validateAccessGroups,
+  validateEntityReferences,
+  validateFieldFromReferences,
+} from "./schema.js";
 import type {
   OntologyConfig,
   FunctionDefinition,
   AccessGroupConfig,
   EnvironmentConfig,
+  EntityDefinition,
   AuthFunction,
 } from "./types.js";
 
@@ -12,7 +18,7 @@ import type {
  *
  * @example
  * ```ts
- * import { defineOntology } from 'ont-run';
+ * import { defineOntology, fieldFrom } from 'ont-run';
  * import { z } from 'zod';
  *
  * export default defineOntology({
@@ -29,10 +35,14 @@ import type {
  *     public: { description: 'Unauthenticated users' },
  *     admin: { description: 'Administrators' },
  *   },
+ *   entities: {
+ *     User: { description: 'A user account' },
+ *   },
  *   functions: {
  *     getUser: {
  *       description: 'Get a user by ID',
  *       access: ['public', 'admin'],
+ *       entities: ['User'],
  *       inputs: z.object({ id: z.string() }),
  *       resolver: './resolvers/getUser.ts',
  *     },
@@ -42,19 +52,27 @@ import type {
  */
 export function defineOntology<
   TGroups extends string,
-  TFunctions extends Record<string, FunctionDefinition<TGroups>>,
+  TEntities extends string,
+  TFunctions extends Record<string, FunctionDefinition<TGroups, TEntities>>,
 >(config: {
   name: string;
   environments: Record<string, EnvironmentConfig>;
   auth: AuthFunction;
   accessGroups: Record<TGroups, AccessGroupConfig>;
+  entities?: Record<TEntities, EntityDefinition>;
   functions: TFunctions;
-}): OntologyConfig<TGroups, TFunctions> {
+}): OntologyConfig<TGroups, TEntities, TFunctions> {
   // Validate the config structure
   const parsed = OntologyConfigSchema.parse(config);
 
   // Validate that all access groups referenced in functions exist
   validateAccessGroups(parsed);
 
-  return config as OntologyConfig<TGroups, TFunctions>;
+  // Validate that all entities referenced in functions exist
+  validateEntityReferences(parsed);
+
+  // Validate that all fieldFrom() references point to existing functions
+  validateFieldFromReferences(parsed);
+
+  return config as OntologyConfig<TGroups, TEntities, TFunctions>;
 }

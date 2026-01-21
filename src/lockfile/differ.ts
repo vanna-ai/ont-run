@@ -18,19 +18,22 @@ export function diffTopology(
 
   // First run - no old topology
   if (!oldTopology) {
-    const functions: FunctionChange[] = Object.entries(newTopology.functions).map(
-      ([name, fn]) => ({
-        name,
-        type: "added" as const,
-        newAccess: fn.access,
-        newDescription: fn.description,
-      })
-    );
+    const functions: FunctionChange[] = Object.entries(
+      newTopology.functions
+    ).map(([name, fn]) => ({
+      name,
+      type: "added" as const,
+      newAccess: fn.access,
+      newDescription: fn.description,
+      newEntities: fn.entities,
+    }));
 
     return {
       hasChanges: true,
       addedGroups: newTopology.accessGroups,
       removedGroups: [],
+      addedEntities: newTopology.entities ?? [],
+      removedEntities: [],
       functions,
       newTopology,
       newHash,
@@ -41,8 +44,23 @@ export function diffTopology(
   const oldGroupSet = new Set(oldTopology.accessGroups);
   const newGroupSet = new Set(newTopology.accessGroups);
 
-  const addedGroups = newTopology.accessGroups.filter((g) => !oldGroupSet.has(g));
-  const removedGroups = oldTopology.accessGroups.filter((g) => !newGroupSet.has(g));
+  const addedGroups = newTopology.accessGroups.filter(
+    (g) => !oldGroupSet.has(g)
+  );
+  const removedGroups = oldTopology.accessGroups.filter(
+    (g) => !newGroupSet.has(g)
+  );
+
+  // Compare entities
+  const oldEntitySet = new Set(oldTopology.entities ?? []);
+  const newEntitySet = new Set(newTopology.entities ?? []);
+
+  const addedEntities = (newTopology.entities ?? []).filter(
+    (e) => !oldEntitySet.has(e)
+  );
+  const removedEntities = (oldTopology.entities ?? []).filter(
+    (e) => !newEntitySet.has(e)
+  );
 
   // Compare functions
   const functions: FunctionChange[] = [];
@@ -86,9 +104,25 @@ export function diffTopology(
         JSON.stringify(oldFn.access) !== JSON.stringify(newFn.access);
       const descriptionChanged = oldFn.description !== newFn.description;
       const inputsChanged =
-        JSON.stringify(oldFn.inputsSchema) !== JSON.stringify(newFn.inputsSchema);
+        JSON.stringify(oldFn.inputsSchema) !==
+        JSON.stringify(newFn.inputsSchema);
+      const outputsChanged =
+        JSON.stringify(oldFn.outputsSchema) !==
+        JSON.stringify(newFn.outputsSchema);
+      const entitiesChanged =
+        JSON.stringify(oldFn.entities) !== JSON.stringify(newFn.entities);
+      const fieldReferencesChanged =
+        JSON.stringify(oldFn.fieldReferences) !==
+        JSON.stringify(newFn.fieldReferences);
 
-      if (accessChanged || descriptionChanged || inputsChanged) {
+      if (
+        accessChanged ||
+        descriptionChanged ||
+        inputsChanged ||
+        outputsChanged ||
+        entitiesChanged ||
+        fieldReferencesChanged
+      ) {
         functions.push({
           name,
           type: "modified",
@@ -97,6 +131,11 @@ export function diffTopology(
           oldDescription: descriptionChanged ? oldFn.description : undefined,
           newDescription: descriptionChanged ? newFn.description : undefined,
           inputsChanged: inputsChanged || undefined,
+          outputsChanged: outputsChanged || undefined,
+          entitiesChanged: entitiesChanged || undefined,
+          oldEntities: entitiesChanged ? oldFn.entities : undefined,
+          newEntities: entitiesChanged ? newFn.entities : undefined,
+          fieldReferencesChanged: fieldReferencesChanged || undefined,
         });
       }
     }
@@ -105,12 +144,16 @@ export function diffTopology(
   const hasChanges =
     addedGroups.length > 0 ||
     removedGroups.length > 0 ||
+    addedEntities.length > 0 ||
+    removedEntities.length > 0 ||
     functions.length > 0;
 
   return {
     hasChanges,
     addedGroups,
     removedGroups,
+    addedEntities,
+    removedEntities,
     functions,
     newTopology,
     newHash,
@@ -143,21 +186,53 @@ export function formatDiffForConsole(diff: TopologyDiff): string {
     lines.push("");
   }
 
+  if (diff.addedEntities.length > 0) {
+    lines.push("Added entities:");
+    for (const entity of diff.addedEntities) {
+      lines.push(`  + ${entity}`);
+    }
+    lines.push("");
+  }
+
+  if (diff.removedEntities.length > 0) {
+    lines.push("Removed entities:");
+    for (const entity of diff.removedEntities) {
+      lines.push(`  - ${entity}`);
+    }
+    lines.push("");
+  }
+
   if (diff.functions.length > 0) {
     lines.push("Function changes:");
     for (const fn of diff.functions) {
       if (fn.type === "added") {
         lines.push(`  + ${fn.name}`);
         lines.push(`    Access: [${fn.newAccess?.join(", ")}]`);
+        if (fn.newEntities && fn.newEntities.length > 0) {
+          lines.push(`    Entities: [${fn.newEntities.join(", ")}]`);
+        }
       } else if (fn.type === "removed") {
         lines.push(`  - ${fn.name}`);
       } else {
         lines.push(`  ~ ${fn.name}`);
         if (fn.oldAccess && fn.newAccess) {
-          lines.push(`    Access: [${fn.oldAccess.join(", ")}] -> [${fn.newAccess.join(", ")}]`);
+          lines.push(
+            `    Access: [${fn.oldAccess.join(", ")}] -> [${fn.newAccess.join(", ")}]`
+          );
+        }
+        if (fn.oldEntities && fn.newEntities) {
+          lines.push(
+            `    Entities: [${fn.oldEntities.join(", ")}] -> [${fn.newEntities.join(", ")}]`
+          );
         }
         if (fn.inputsChanged) {
           lines.push(`    Inputs: schema changed`);
+        }
+        if (fn.outputsChanged) {
+          lines.push(`    Outputs: schema changed`);
+        }
+        if (fn.fieldReferencesChanged) {
+          lines.push(`    Field references: changed`);
         }
       }
     }

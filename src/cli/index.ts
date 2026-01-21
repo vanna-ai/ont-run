@@ -1,7 +1,7 @@
 import { defineCommand, runMain } from "citty";
 import { initCommand } from "./commands/init.js";
-import { startCommand } from "./commands/start.js";
 import { reviewCommand } from "./commands/review.js";
+import { browseCommand } from "./commands/browse.js";
 
 const main = defineCommand({
   meta: {
@@ -11,8 +11,8 @@ const main = defineCommand({
   },
   subCommands: {
     init: initCommand,
-    start: startCommand,
     review: reviewCommand,
+    browse: browseCommand,
   },
 });
 

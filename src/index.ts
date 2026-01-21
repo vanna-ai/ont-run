@@ -3,7 +3,7 @@
  *
  * @example
  * ```ts
- * import { defineOntology } from 'ont-run';
+ * import { defineOntology, fieldFrom } from 'ont-run';
  * import { z } from 'zod';
  *
  * export default defineOntology({
@@ -14,10 +14,14 @@
  *     public: { description: 'Unauthenticated' },
  *     admin: { description: 'Administrators' },
  *   },
+ *   entities: {
+ *     User: { description: 'A user account' },
+ *   },
  *   functions: {
  *     hello: {
  *       description: 'Say hello',
  *       access: ['public'],
+ *       entities: [],
  *       inputs: z.object({ name: z.string() }),
  *       resolver: './resolvers/hello.ts',
  *     },
@@ -28,6 +32,9 @@
 
 // Main API
 export { defineOntology } from "./config/define.js";
+export { fieldFrom } from "./config/categorical.js";
+export { startOnt } from "./server/start.js";
+export type { StartOntOptions, StartOntResult } from "./server/start.js";
 
 // Types
 export type {
@@ -35,9 +42,11 @@ export type {
   FunctionDefinition,
   AccessGroupConfig,
   EnvironmentConfig,
+  EntityDefinition,
   AuthFunction,
   ResolverContext,
   ResolverFunction,
+  FieldOption,
 } from "./config/types.js";
 
 // Re-export Zod for convenience

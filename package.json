@@ -22,7 +22,10 @@
     "dev": "bun run bin/ont.ts",
     "build": "bun build ./src/index.ts --outdir ./dist --target node",
     "build:cli": "bun build ./bin/ont.ts --outfile ./dist/bin/ont.js --target node --external @modelcontextprotocol/sdk",
-    "prepublishOnly": "bun run build && bun run build:cli"
+    "prepublishOnly": "bun run build && bun run build:cli",
+    "docs": "cd docs && bun run dev",
+    "docs:build": "cd docs && bun run build",
+    "docs:preview": "cd docs && bun run preview"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.8",

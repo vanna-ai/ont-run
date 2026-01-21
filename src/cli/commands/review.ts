@@ -26,9 +26,26 @@ export const reviewCommand = defineCommand({
       description: "Print diff and exit without prompting",
       default: false,
     },
+    cloud: {
+      type: "boolean",
+      description: "Sync with ont Cloud for team approvals",
+      default: false,
+    },
   },
   async run({ args }) {
     try {
+      // Check for cloud mode
+      const cloudToken = process.env.ONT_CLOUD_TOKEN;
+      if (args.cloud || cloudToken) {
+        consola.info("");
+        consola.box(
+          "ont Cloud coming soon!\n\n" +
+            "Team approvals, audit trails, and compliance reporting.\n\n" +
+            "Sign up for early access: https://ont.dev/cloud"
+        );
+        process.exit(0);
+      }
+
       // Load config
       consola.info("Loading ontology config...");
       const { config, configDir } = await loadConfig();
