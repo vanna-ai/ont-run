@@ -66,7 +66,7 @@ The `entities` field is required (not optional) because:
 1. **Explicitness**: Forces you to think about what domain objects each function touches
 2. **Documentation**: AI agents and developers can understand the API at a glance
 3. **Organization**: Group related functions together
-4. **Security**: Topology changes to entity associations require human review
+4. **Security**: Ontology changes to entity associations require human review
 
 Use an empty array `[]` for utility functions that don't relate to any specific entity.
 
@@ -95,12 +95,12 @@ Function "getProject" references unknown entity "Project".
 Valid entities: User
 ```
 
-## Entities in the topology
+## Entities in the ontology
 
-Entity associations are part of the security topology. When you change which entities a function relates to, it triggers a review:
+Entity associations are part of the security-critical ontology. When you change which entities a function relates to, it triggers a review:
 
 ```
-Topology changes detected:
+Ontology changes detected:
 
 Function changes:
   ~ getUser

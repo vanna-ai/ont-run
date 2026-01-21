@@ -159,12 +159,12 @@ Function "getUser" references unknown access group "superadmin".
 Valid groups: public, user, support, admin
 ```
 
-## Security topology
+## Security
 
-Access lists are part of the security topology. Changes require human review:
+Access lists are part of the security-critical ontology. Changes require human review:
 
 ```
-Topology changes detected:
+Ontology changes detected:
 
 Function changes:
   ~ deleteUser

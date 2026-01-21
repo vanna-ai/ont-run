@@ -1,25 +1,25 @@
 import type {
-  TopologySnapshot,
-  TopologyDiff,
+  OntologySnapshot,
+  OntologyDiff,
   FunctionChange,
 } from "./types.js";
-import { hashTopology } from "./hasher.js";
+import { hashOntology } from "./hasher.js";
 
 /**
- * Compare two topology snapshots and generate a diff.
- * @param oldTopology - The previous topology (from lockfile), or null if first run
- * @param newTopology - The current topology (from config)
+ * Compare two ontology snapshots and generate a diff.
+ * @param oldOntology - The previous ontology (from lockfile), or null if first run
+ * @param newOntology - The current ontology (from config)
  */
-export function diffTopology(
-  oldTopology: TopologySnapshot | null,
-  newTopology: TopologySnapshot
-): TopologyDiff {
-  const newHash = hashTopology(newTopology);
+export function diffOntology(
+  oldOntology: OntologySnapshot | null,
+  newOntology: OntologySnapshot
+): OntologyDiff {
+  const newHash = hashOntology(newOntology);
 
-  // First run - no old topology
-  if (!oldTopology) {
+  // First run - no old ontology
+  if (!oldOntology) {
     const functions: FunctionChange[] = Object.entries(
-      newTopology.functions
+      newOntology.functions
     ).map(([name, fn]) => ({
       name,
       type: "added" as const,
@@ -30,47 +30,47 @@ export function diffTopology(
 
     return {
       hasChanges: true,
-      addedGroups: newTopology.accessGroups,
+      addedGroups: newOntology.accessGroups,
       removedGroups: [],
-      addedEntities: newTopology.entities ?? [],
+      addedEntities: newOntology.entities ?? [],
       removedEntities: [],
       functions,
-      newTopology,
+      newOntology,
       newHash,
     };
   }
 
   // Compare access groups
-  const oldGroupSet = new Set(oldTopology.accessGroups);
-  const newGroupSet = new Set(newTopology.accessGroups);
+  const oldGroupSet = new Set(oldOntology.accessGroups);
+  const newGroupSet = new Set(newOntology.accessGroups);
 
-  const addedGroups = newTopology.accessGroups.filter(
+  const addedGroups = newOntology.accessGroups.filter(
     (g) => !oldGroupSet.has(g)
   );
-  const removedGroups = oldTopology.accessGroups.filter(
+  const removedGroups = oldOntology.accessGroups.filter(
     (g) => !newGroupSet.has(g)
   );
 
   // Compare entities
-  const oldEntitySet = new Set(oldTopology.entities ?? []);
-  const newEntitySet = new Set(newTopology.entities ?? []);
+  const oldEntitySet = new Set(oldOntology.entities ?? []);
+  const newEntitySet = new Set(newOntology.entities ?? []);
 
-  const addedEntities = (newTopology.entities ?? []).filter(
+  const addedEntities = (newOntology.entities ?? []).filter(
     (e) => !oldEntitySet.has(e)
   );
-  const removedEntities = (oldTopology.entities ?? []).filter(
+  const removedEntities = (oldOntology.entities ?? []).filter(
     (e) => !newEntitySet.has(e)
   );
 
   // Compare functions
   const functions: FunctionChange[] = [];
-  const oldFnNames = new Set(Object.keys(oldTopology.functions));
-  const newFnNames = new Set(Object.keys(newTopology.functions));
+  const oldFnNames = new Set(Object.keys(oldOntology.functions));
+  const newFnNames = new Set(Object.keys(newOntology.functions));
 
   // Added functions
   for (const name of newFnNames) {
     if (!oldFnNames.has(name)) {
-      const fn = newTopology.functions[name];
+      const fn = newOntology.functions[name];
       functions.push({
         name,
         type: "added",
@@ -83,7 +83,7 @@ export function diffTopology(
   // Removed functions
   for (const name of oldFnNames) {
     if (!newFnNames.has(name)) {
-      const fn = oldTopology.functions[name];
+      const fn = oldOntology.functions[name];
       functions.push({
         name,
         type: "removed",
@@ -96,8 +96,8 @@ export function diffTopology(
   // Modified functions
   for (const name of newFnNames) {
     if (oldFnNames.has(name)) {
-      const oldFn = oldTopology.functions[name];
-      const newFn = newTopology.functions[name];
+      const oldFn = oldOntology.functions[name];
+      const newFn = newOntology.functions[name];
 
       // Check if anything changed
       const accessChanged =
@@ -155,7 +155,7 @@ export function diffTopology(
     addedEntities,
     removedEntities,
     functions,
-    newTopology,
+    newOntology,
     newHash,
   };
 }
@@ -163,12 +163,12 @@ export function diffTopology(
 /**
  * Format a diff for console output
  */
-export function formatDiffForConsole(diff: TopologyDiff): string {
+export function formatDiffForConsole(diff: OntologyDiff): string {
   if (!diff.hasChanges) {
     return "No changes detected.";
   }
 
-  const lines: string[] = ["Topology changes detected:", ""];
+  const lines: string[] = ["Ontology changes detected:", ""];
 
   if (diff.addedGroups.length > 0) {
     lines.push("Added access groups:");

@@ -1,9 +1,9 @@
 import consola from "consola";
 import { findConfigFile, loadConfig } from "../cli/utils/config-loader.js";
 import {
-  computeTopologyHash,
+  computeOntologyHash,
   readLockfile,
-  diffTopology,
+  diffOntology,
   formatDiffForConsole,
   lockfileExists,
 } from "../lockfile/index.js";
@@ -75,10 +75,10 @@ export async function startOnt(options: StartOntOptions = {}): Promise<StartOntR
 
   // Check lockfile
   consola.info("Checking lockfile...");
-  const { topology, hash } = computeTopologyHash(config);
+  const { ontology, hash } = computeOntologyHash(config);
 
   if (!lockfileExists(configDir)) {
-    const message = `No ont.lock file found.\nRun \`bun run review\` to approve the initial topology.`;
+    const message = `No ont.lock file found.\nRun \`bun run review\` to approve the initial ontology.`;
 
     if (isDev) {
       consola.warn(message);
@@ -89,11 +89,11 @@ export async function startOnt(options: StartOntOptions = {}): Promise<StartOntR
     }
   } else {
     const lockfile = await readLockfile(configDir);
-    const oldTopology = lockfile?.topology || null;
-    const diff = diffTopology(oldTopology, topology);
+    const oldOntology = lockfile?.ontology || null;
+    const diff = diffOntology(oldOntology, ontology);
 
     if (diff.hasChanges) {
-      const message = `Topology has changed since last review.\nRun \`bun run review\` to approve the changes.`;
+      const message = `Ontology has changed since last review.\nRun \`bun run review\` to approve the changes.`;
 
       if (isDev) {
         consola.warn("Lockfile mismatch detected:");

@@ -4,8 +4,8 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import type { OntologyConfig } from "../config/types.js";
 import { getFieldFromMetadata } from "../config/categorical.js";
 import type {
-  TopologySnapshot,
-  FunctionTopology,
+  OntologySnapshot,
+  FunctionShape,
   FieldReference,
 } from "./types.js";
 
@@ -62,7 +62,7 @@ function extractFieldReferences(
 }
 
 /**
- * Extract the topology from an OntologyConfig.
+ * Extract the ontology snapshot from an OntologyConfig.
  * This extracts ONLY the security-relevant parts:
  * - Function names
  * - Access lists
@@ -77,8 +77,8 @@ function extractFieldReferences(
  * - Environment configs
  * - Auth function
  */
-export function extractTopology(config: OntologyConfig): TopologySnapshot {
-  const functions: Record<string, FunctionTopology> = {};
+export function extractOntology(config: OntologyConfig): OntologySnapshot {
+  const functions: Record<string, FunctionShape> = {};
 
   for (const [name, fn] of Object.entries(config.functions)) {
     // Convert Zod schema to JSON Schema for hashing
@@ -138,12 +138,12 @@ export function extractTopology(config: OntologyConfig): TopologySnapshot {
 }
 
 /**
- * Create a deterministic hash of a topology snapshot.
+ * Create a deterministic hash of an ontology snapshot.
  * Uses SHA256 and returns a 16-character hex string.
  */
-export function hashTopology(topology: TopologySnapshot): string {
+export function hashOntology(ontology: OntologySnapshot): string {
   // Sort all keys at all levels for deterministic hashing
-  const normalized = JSON.stringify(topology, (_, value) => {
+  const normalized = JSON.stringify(ontology, (_, value) => {
     if (value && typeof value === "object" && !Array.isArray(value)) {
       // Sort object keys
       return Object.keys(value)
@@ -163,13 +163,13 @@ export function hashTopology(topology: TopologySnapshot): string {
 }
 
 /**
- * Extract topology and compute hash in one step
+ * Extract ontology snapshot and compute hash in one step
  */
-export function computeTopologyHash(config: OntologyConfig): {
-  topology: TopologySnapshot;
+export function computeOntologyHash(config: OntologyConfig): {
+  ontology: OntologySnapshot;
   hash: string;
 } {
-  const topology = extractTopology(config);
-  const hash = hashTopology(topology);
-  return { topology, hash };
+  const ontology = extractOntology(config);
+  const hash = hashOntology(ontology);
+  return { ontology, hash };
 }

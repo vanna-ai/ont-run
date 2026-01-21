@@ -9,9 +9,9 @@ export interface FieldReference {
 }
 
 /**
- * Snapshot of a function's topology (what matters for security review)
+ * Snapshot of a function's shape (what matters for security review)
  */
-export interface FunctionTopology {
+export interface FunctionShape {
   /** Description of the function */
   description: string;
   /** Sorted list of access groups */
@@ -27,17 +27,17 @@ export interface FunctionTopology {
 }
 
 /**
- * Complete topology snapshot of the ontology
+ * Complete snapshot of the ontology
  */
-export interface TopologySnapshot {
+export interface OntologySnapshot {
   /** Name of the ontology */
   name: string;
   /** Sorted list of access group names */
   accessGroups: string[];
   /** Sorted list of entity names */
   entities?: string[];
-  /** Function topologies keyed by name */
-  functions: Record<string, FunctionTopology>;
+  /** Function shapes keyed by name */
+  functions: Record<string, FunctionShape>;
 }
 
 /**
@@ -46,12 +46,12 @@ export interface TopologySnapshot {
 export interface Lockfile {
   /** Lockfile format version */
   version: number;
-  /** SHA256 hash of the topology */
+  /** SHA256 hash of the ontology */
   hash: string;
   /** When this was approved */
   approvedAt: string;
-  /** The full topology snapshot */
-  topology: TopologySnapshot;
+  /** The full ontology snapshot */
+  ontology: OntologySnapshot;
 }
 
 /**
@@ -73,9 +73,9 @@ export interface FunctionChange {
 }
 
 /**
- * Diff between old and new topology
+ * Diff between old and new ontology
  */
-export interface TopologyDiff {
+export interface OntologyDiff {
   /** Whether there are any changes */
   hasChanges: boolean;
   /** Added access groups */
@@ -88,8 +88,8 @@ export interface TopologyDiff {
   removedEntities: string[];
   /** Function changes */
   functions: FunctionChange[];
-  /** The new topology (for writing to lockfile on approve) */
-  newTopology: TopologySnapshot;
+  /** The new ontology (for writing to lockfile on approve) */
+  newOntology: OntologySnapshot;
   /** The new hash */
   newHash: string;
 }

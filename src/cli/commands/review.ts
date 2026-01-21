@@ -2,18 +2,18 @@ import { defineCommand } from "citty";
 import consola from "consola";
 import { loadConfig } from "../utils/config-loader.js";
 import {
-  computeTopologyHash,
+  computeOntologyHash,
   readLockfile,
-  diffTopology,
+  diffOntology,
   formatDiffForConsole,
   writeLockfile,
 } from "../../lockfile/index.js";
-import { startReviewServer } from "../../review/server.js";
+import { startBrowserServer } from "../../browser/server.js";
 
 export const reviewCommand = defineCommand({
   meta: {
     name: "review",
-    description: "Review and approve topology changes",
+    description: "Review and approve ontology changes",
   },
   args: {
     "auto-approve": {
@@ -50,56 +50,73 @@ export const reviewCommand = defineCommand({
       consola.info("Loading ontology config...");
       const { config, configDir } = await loadConfig();
 
-      // Compute current topology
-      const { topology: newTopology, hash: newHash } = computeTopologyHash(config);
+      // Compute current ontology snapshot
+      const { ontology: newOntology, hash: newHash } = computeOntologyHash(config);
 
       // Load existing lockfile
       const lockfile = await readLockfile(configDir);
-      const oldTopology = lockfile?.topology || null;
+      const oldOntology = lockfile?.ontology || null;
 
       // Compute diff
-      const diff = diffTopology(oldTopology, newTopology);
+      const diff = diffOntology(oldOntology, newOntology);
 
-      if (!diff.hasChanges) {
-        consola.success("No topology changes detected.");
-
-        if (!lockfile) {
-          // First time - write the lockfile
-          consola.info("Writing initial lockfile...");
-          await writeLockfile(configDir, newTopology, newHash);
-          consola.success("Created ont.lock");
-        }
-
-        return;
-      }
-
-      // Print diff to console
-      console.log("\n" + formatDiffForConsole(diff) + "\n");
-
+      // Handle print-only mode
       if (args["print-only"]) {
-        process.exit(diff.hasChanges ? 1 : 0);
+        if (diff.hasChanges) {
+          console.log("\n" + formatDiffForConsole(diff) + "\n");
+          process.exit(1);
+        } else {
+          consola.success("No ontology changes detected.");
+          process.exit(0);
+        }
       }
 
+      // Handle auto-approve mode
       if (args["auto-approve"]) {
-        consola.info("Auto-approving changes...");
-        await writeLockfile(configDir, newTopology, newHash);
-        consola.success("Changes approved. Lockfile updated.");
+        if (diff.hasChanges) {
+          console.log("\n" + formatDiffForConsole(diff) + "\n");
+          consola.info("Auto-approving changes...");
+          await writeLockfile(configDir, newOntology, newHash);
+          consola.success("Changes approved. Lockfile updated.");
+        } else {
+          consola.success("No ontology changes detected.");
+          if (!lockfile) {
+            consola.info("Writing initial lockfile...");
+            await writeLockfile(configDir, newOntology, newHash);
+            consola.success("Created ont.lock");
+          }
+        }
         return;
       }
 
-      // Start review server
-      consola.info("Starting review UI...");
-      const result = await startReviewServer({
-        diff,
+      // Handle initial lockfile creation (no previous state)
+      if (!lockfile && !diff.hasChanges) {
+        consola.info("Writing initial lockfile...");
+        await writeLockfile(configDir, newOntology, newHash);
+        consola.success("Created ont.lock");
+      }
+
+      // Print diff summary to console if there are changes
+      if (diff.hasChanges) {
+        console.log("\n" + formatDiffForConsole(diff) + "\n");
+      }
+
+      // Start unified browser/review UI
+      consola.info(diff.hasChanges ? "Starting review UI..." : "Starting ontology browser...");
+      const result = await startBrowserServer({
+        config,
+        diff: diff.hasChanges ? diff : null,
         configDir,
       });
 
-      if (result.approved) {
-        consola.success("Changes approved. Lockfile updated.");
-        process.exit(0);
-      } else {
-        consola.warn("Changes rejected.");
-        process.exit(1);
+      if (diff.hasChanges) {
+        if (result.approved) {
+          consola.success("Changes approved. Lockfile updated.");
+          process.exit(0);
+        } else {
+          consola.warn("Changes rejected.");
+          process.exit(1);
+        }
       }
     } catch (error) {
       consola.error(error instanceof Error ? error.message : "Unknown error");

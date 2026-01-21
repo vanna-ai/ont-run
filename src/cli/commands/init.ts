@@ -218,7 +218,7 @@ await startOnt();
         "Next steps:\n" +
         "  1. Run `bun install` to install dependencies\n" +
         "  2. Review ontology.config.ts and customize\n" +
-        "  3. Run `bun run review` to approve the initial topology\n" +
+        "  3. Run `bun run review` to approve the initial ontology\n" +
         "  4. Run `bun run dev` to start the servers\n\n" +
         "Your API will be available at http://localhost:3000"
     );

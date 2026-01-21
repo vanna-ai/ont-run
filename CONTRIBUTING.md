@@ -20,7 +20,7 @@ Instead of `bunx ont-run`, use `bun run bin/ont.ts`:
 bun run bin/ont.ts init test-project
 cd test-project
 
-# Review topology
+# Review ontology
 bun run ../bin/ont.ts review --auto-approve
 
 # Start the API server only (no MCP)

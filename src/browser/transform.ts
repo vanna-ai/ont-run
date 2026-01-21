@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { OntologyConfig } from "../config/types.js";
+import type { OntologyDiff, FunctionChange } from "../lockfile/types.js";
 import { getFieldFromMetadata } from "../config/categorical.js";
 
 export type NodeType = "entity" | "function" | "accessGroup";
 export type EdgeType = "operates-on" | "requires-access" | "depends-on";
+export type ChangeStatus = "added" | "removed" | "modified" | "unchanged";
 
 export interface GraphNode {
   id: string;
@@ -36,6 +38,23 @@ export interface GraphData {
     totalEntities: number;
     totalAccessGroups: number;
   };
+}
+
+export interface EnhancedGraphNode extends GraphNode {
+  changeStatus: ChangeStatus;
+  changeDetails?: FunctionChange;
+}
+
+export interface EnhancedGraphData {
+  nodes: EnhancedGraphNode[];
+  edges: GraphEdge[];
+  meta: GraphData["meta"] & {
+    hasChanges: boolean;
+    addedCount: number;
+    removedCount: number;
+    modifiedCount: number;
+  };
+  diff: OntologyDiff | null;
 }
 
 interface FieldReference {
@@ -324,4 +343,131 @@ export function getNodeDetails(
   }
 
   return { node, connections };
+}
+
+/**
+ * Enhance graph data with diff information for review mode
+ */
+export function enhanceWithDiff(
+  graphData: GraphData,
+  diff: OntologyDiff | null
+): EnhancedGraphData {
+  if (!diff) {
+    // No diff - all nodes are unchanged
+    return {
+      nodes: graphData.nodes.map((node) => ({
+        ...node,
+        changeStatus: "unchanged" as ChangeStatus,
+      })),
+      edges: graphData.edges,
+      meta: {
+        ...graphData.meta,
+        hasChanges: false,
+        addedCount: 0,
+        removedCount: 0,
+        modifiedCount: 0,
+      },
+      diff: null,
+    };
+  }
+
+  // Build lookup maps for changes
+  const functionChanges = new Map<string, FunctionChange>();
+  for (const fn of diff.functions) {
+    functionChanges.set(fn.name, fn);
+  }
+
+  const addedGroups = new Set(diff.addedGroups);
+  const removedGroups = new Set(diff.removedGroups);
+  const addedEntities = new Set(diff.addedEntities);
+  const removedEntities = new Set(diff.removedEntities);
+
+  // Enhance existing nodes with change status
+  const enhancedNodes: EnhancedGraphNode[] = graphData.nodes.map((node) => {
+    let changeStatus: ChangeStatus = "unchanged";
+    let changeDetails: FunctionChange | undefined;
+
+    if (node.type === "function") {
+      const fnName = node.label;
+      const change = functionChanges.get(fnName);
+      if (change) {
+        changeStatus = change.type;
+        changeDetails = change;
+      }
+    } else if (node.type === "accessGroup") {
+      if (addedGroups.has(node.label)) {
+        changeStatus = "added";
+      }
+    } else if (node.type === "entity") {
+      if (addedEntities.has(node.label)) {
+        changeStatus = "added";
+      }
+    }
+
+    return {
+      ...node,
+      changeStatus,
+      changeDetails,
+    };
+  });
+
+  // Add ghost nodes for removed items
+  for (const group of removedGroups) {
+    enhancedNodes.push({
+      id: `accessGroup:${group}`,
+      type: "accessGroup",
+      label: group,
+      description: "Removed access group",
+      metadata: { functionCount: 0 },
+      changeStatus: "removed",
+    });
+  }
+
+  for (const entity of removedEntities) {
+    enhancedNodes.push({
+      id: `entity:${entity}`,
+      type: "entity",
+      label: entity,
+      description: "Removed entity",
+      metadata: { functionCount: 0 },
+      changeStatus: "removed",
+    });
+  }
+
+  // Add ghost nodes for removed functions
+  for (const fn of diff.functions.filter((f) => f.type === "removed")) {
+    enhancedNodes.push({
+      id: `function:${fn.name}`,
+      type: "function",
+      label: fn.name,
+      description: fn.oldDescription || "Removed function",
+      metadata: {},
+      changeStatus: "removed",
+      changeDetails: fn,
+    });
+  }
+
+  // Count changes
+  const addedCount =
+    diff.addedGroups.length +
+    diff.addedEntities.length +
+    diff.functions.filter((f) => f.type === "added").length;
+  const removedCount =
+    diff.removedGroups.length +
+    diff.removedEntities.length +
+    diff.functions.filter((f) => f.type === "removed").length;
+  const modifiedCount = diff.functions.filter((f) => f.type === "modified").length;
+
+  return {
+    nodes: enhancedNodes,
+    edges: graphData.edges,
+    meta: {
+      ...graphData.meta,
+      hasChanges: diff.hasChanges,
+      addedCount,
+      removedCount,
+      modifiedCount,
+    },
+    diff,
+  };
 }

@@ -53,13 +53,13 @@ Your ontology isn't just an API definition—it's your business in code:
 - **Access groups** define who can do what (admin, support, public)
 - **Relationships** show how concepts connect (fieldFrom, entity tags)
 
-This is your operational DNA. The topology—the shape of what exists and who can access it—is often more valuable than the implementation code itself.
+This is your operational DNA. The ontology—the shape of what exists and who can access it—is often more valuable than the implementation code itself.
 
 ### Two Layers
 
 | Layer | Contains | Who modifies |
 |-------|----------|--------------|
-| **Topology** | Entities, functions, access, relationships | Humans only (`ont-run review`) |
+| **Ontology** | Entities, functions, access, relationships | Humans only (`ont-run review`) |
 | **Logic** | Resolver implementations | AI agents freely |
 
 AI can write your business logic. But only humans can change what the business *is*.
@@ -105,7 +105,7 @@ my-api/
 │   └── deleteUser.ts
 ```
 
-### 2. Review and approve the initial topology
+### 2. Review and approve the initial ontology
 
 ```bash
 bunx ont-run review
@@ -361,7 +361,7 @@ bunx ont-run init . --force    # Overwrite existing files
 
 ### `ont-run review`
 
-Review and approve topology changes.
+Review and approve ontology changes.
 
 ```bash
 bunx ont-run review              # Opens browser UI
@@ -388,7 +388,7 @@ The `ont.lock` file is the core of Ontology's security model.
 
 ### What Gets Hashed
 
-The lockfile contains a SHA256 hash of your **topology**:
+The lockfile contains a SHA256 hash of your **ontology**:
 
 - Function names
 - Function descriptions
@@ -411,7 +411,7 @@ This means AI agents can freely modify resolver logic without triggering a revie
   "version": 1,
   "hash": "a1b2c3d4e5f67890",
   "approvedAt": "2025-01-13T10:00:00Z",
-  "topology": {
+  "ontology": {
     "name": "my-api",
     "accessGroups": ["admin", "public", "user"],
     "functions": {
@@ -435,13 +435,13 @@ This means AI agents can freely modify resolver logic without triggering a revie
 
 When you run `ont-run start`:
 
-1. Config is loaded and topology extracted
+1. Config is loaded and ontology snapshot extracted
 2. Current hash is computed
 3. Hash is compared against `ont.lock`
 4. If mismatch → **Startup blocked**
 
 ```
-❌ ERROR  Topology has changed since last review.
+❌ ERROR  Ontology has changed since last review.
 ❌ ERROR  The ontology structure (functions, access groups, or inputs)
 ❌ ERROR  has been modified. This requires explicit approval.
 ❌ ERROR  Run `ont-run review` to review and approve the changes.
@@ -636,7 +636,7 @@ Make sure you're in the correct directory or run `ont-run init` first.
 
 Run `bunx ont-run review` to create the initial lockfile.
 
-### "Topology has changed since last review"
+### "Ontology has changed since last review"
 
 Your config has changed. Run `bunx ont-run review` to review and approve the changes.
 

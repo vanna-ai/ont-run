@@ -1,73 +1,127 @@
 import { Hono } from "hono";
 import open from "open";
 import type { OntologyConfig } from "../config/types.js";
+import type { OntologyDiff } from "../lockfile/types.js";
+import { writeLockfile } from "../lockfile/index.js";
 import { serve, findAvailablePort } from "../runtime/index.js";
-import { transformToGraphData, searchNodes, getNodeDetails, type GraphData } from "./transform.js";
+import { transformToGraphData, enhanceWithDiff, searchNodes, getNodeDetails, type EnhancedGraphData } from "./transform.js";
 
 export interface BrowserServerOptions {
   config: OntologyConfig;
+  /** Diff data for review mode (null = browse-only, no changes) */
+  diff?: OntologyDiff | null;
+  /** Directory to write the lockfile to on approval */
+  configDir?: string;
   port?: number;
   openBrowser?: boolean;
 }
 
-export async function startBrowserServer(options: BrowserServerOptions): Promise<void> {
-  const { config, port: preferredPort, openBrowser = true } = options;
-
-  const graphData = transformToGraphData(config);
-
-  const app = new Hono();
-
-  // API: Get full graph data
-  app.get("/api/graph", (c) => c.json(graphData));
-
-  // API: Get node details
-  app.get("/api/node/:type/:id", (c) => {
-    const { type, id } = c.req.param();
-    const nodeId = `${type}:${id}`;
-    const details = getNodeDetails(graphData, nodeId);
-    if (!details.node) {
-      return c.json({ error: "Node not found" }, 404);
-    }
-    return c.json(details);
-  });
-
-  // API: Search nodes
-  app.get("/api/search", (c) => {
-    const query = c.req.query("q") || "";
-    if (query.length < 1) {
-      return c.json({ results: [] });
-    }
-    const results = searchNodes(graphData, query);
-    return c.json({ results });
-  });
-
-  // Serve UI
-  app.get("/", (c) => c.html(generateBrowserUI(graphData)));
-
-  // Start server
-  const port = preferredPort || (await findAvailablePort(3457));
-  const server = await serve(app, port);
-
-  const url = `http://localhost:${server.port}`;
-  console.log(`\nOntology Browser available at: ${url}`);
-
-  if (openBrowser) {
-    console.log("Opening in browser...\n");
-    try {
-      await open(url);
-    } catch {
-      console.log("Could not open browser automatically.");
-      console.log(`Please open ${url} manually.\n`);
-    }
-  }
-
-  console.log("Press Ctrl+C to stop the server.\n");
-
-  // Keep the server running
-  await new Promise(() => {});
+export interface BrowserServerResult {
+  /** Whether changes were approved (only set if there were changes) */
+  approved?: boolean;
 }
 
-function generateBrowserUI(graphData: GraphData): string {
+export async function startBrowserServer(options: BrowserServerOptions): Promise<BrowserServerResult> {
+  const { config, diff = null, configDir, port: preferredPort, openBrowser = true } = options;
+
+  // Transform config to graph data and enhance with diff info
+  const baseGraphData = transformToGraphData(config);
+  const graphData = enhanceWithDiff(baseGraphData, diff);
+
+  return new Promise(async (resolve) => {
+    const app = new Hono();
+
+    // API: Get full graph data (enhanced with change status)
+    app.get("/api/graph", (c) => c.json(graphData));
+
+    // API: Get diff data
+    app.get("/api/diff", (c) => c.json(diff));
+
+    // API: Get node details
+    app.get("/api/node/:type/:id", (c) => {
+      const { type, id } = c.req.param();
+      const nodeId = `${type}:${id}`;
+      const details = getNodeDetails(baseGraphData, nodeId);
+      if (!details.node) {
+        return c.json({ error: "Node not found" }, 404);
+      }
+      return c.json(details);
+    });
+
+    // API: Search nodes
+    app.get("/api/search", (c) => {
+      const query = c.req.query("q") || "";
+      if (query.length < 1) {
+        return c.json({ results: [] });
+      }
+      const results = searchNodes(baseGraphData, query);
+      return c.json({ results });
+    });
+
+    // API: Approve changes (only works if diff exists)
+    app.post("/api/approve", async (c) => {
+      if (!diff || !configDir) {
+        return c.json({ error: "No changes to approve" }, 400);
+      }
+      try {
+        await writeLockfile(configDir, diff.newOntology, diff.newHash);
+        // Give time for response to be sent before resolving
+        setTimeout(() => {
+          resolve({ approved: true });
+        }, 500);
+        return c.json({ success: true });
+      } catch (error) {
+        return c.json(
+          {
+            error: "Failed to write lockfile",
+            message: error instanceof Error ? error.message : "Unknown error",
+          },
+          500
+        );
+      }
+    });
+
+    // API: Reject changes
+    app.post("/api/reject", (c) => {
+      // Give time for response to be sent before resolving
+      setTimeout(() => {
+        resolve({ approved: false });
+      }, 500);
+      return c.json({ success: true });
+    });
+
+    // Serve UI
+    app.get("/", (c) => c.html(generateBrowserUI(graphData)));
+
+    // Start server
+    const port = preferredPort || (await findAvailablePort(3457));
+    const server = await serve(app, port);
+
+    const url = `http://localhost:${server.port}`;
+    const hasChanges = diff?.hasChanges ?? false;
+    console.log(`\nOntology ${hasChanges ? "Review" : "Browser"} available at: ${url}`);
+
+    if (openBrowser) {
+      console.log("Opening in browser...\n");
+      try {
+        await open(url);
+      } catch {
+        console.log("Could not open browser automatically.");
+        console.log(`Please open ${url} manually.\n`);
+      }
+    }
+
+    if (hasChanges) {
+      console.log("Waiting for review decision...\n");
+    } else {
+      console.log("Press Ctrl+C to stop the server.\n");
+      // If no changes, resolve immediately with no approval status
+      // But keep server running for browsing
+    }
+  });
+}
+
+function generateBrowserUI(graphData: EnhancedGraphData): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -88,6 +142,14 @@ function generateBrowserUI(graphData: GraphData): string {
       --vanna-teal: #15a8a8;
       --vanna-orange: #fe5d26;
       --vanna-magenta: #bf1363;
+
+      /* Change indicator colors (Vanna palette complements) */
+      --change-added: #2a9d8f;
+      --change-added-bg: rgba(42, 157, 143, 0.12);
+      --change-removed: #c44536;
+      --change-removed-bg: rgba(196, 69, 54, 0.1);
+      --change-modified: var(--vanna-orange);
+      --change-modified-bg: rgba(254, 93, 38, 0.1);
 
       /* Semantic mappings */
       --bg-primary: #f8f6f1;
@@ -282,6 +344,355 @@ function generateBrowserUI(graphData: GraphData): string {
       background: white;
       color: var(--vanna-teal);
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    /* View Tabs */
+    .view-tabs {
+      display: flex;
+      gap: 4px;
+      background: rgba(255, 255, 255, 0.5);
+      padding: 4px;
+      border-radius: 9999px;
+      margin-right: 16px;
+    }
+
+    .view-tab {
+      padding: 8px 16px;
+      background: transparent;
+      border: none;
+      border-radius: 9999px;
+      color: var(--text-muted);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .view-tab:hover {
+      color: var(--vanna-navy);
+    }
+
+    .view-tab.active {
+      background: white;
+      color: var(--vanna-teal);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Change Indicators */
+    .change-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 6px;
+    }
+
+    .change-badge.added {
+      background: var(--change-added-bg);
+      color: var(--change-added);
+    }
+
+    .change-badge.removed {
+      background: var(--change-removed-bg);
+      color: var(--change-removed);
+    }
+
+    .change-badge.modified {
+      background: var(--change-modified-bg);
+      color: var(--change-modified);
+    }
+
+    /* Review Footer */
+    .review-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid rgba(21, 168, 168, 0.2);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 1000;
+    }
+
+    .review-footer.hidden {
+      display: none;
+    }
+
+    .changes-summary {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .changes-summary .change-count {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .changes-summary .change-count.added { color: var(--change-added); }
+    .changes-summary .change-count.removed { color: var(--change-removed); }
+    .changes-summary .change-count.modified { color: var(--change-modified); }
+
+    .review-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .review-btn {
+      padding: 10px 20px;
+      border-radius: 9999px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .review-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .review-btn.reject {
+      background: var(--change-removed-bg);
+      border-color: rgba(196, 69, 54, 0.3);
+      color: var(--change-removed);
+    }
+
+    .review-btn.reject:hover:not(:disabled) {
+      background: rgba(196, 69, 54, 0.2);
+    }
+
+    .review-btn.approve {
+      background: var(--vanna-teal);
+      color: white;
+      box-shadow: 0 4px 15px rgba(21, 168, 168, 0.3);
+    }
+
+    .review-btn.approve:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(21, 168, 168, 0.4);
+    }
+
+    /* Table View */
+    .table-view {
+      display: none;
+      grid-column: 2 / 4;
+      padding: 24px;
+      overflow-y: auto;
+      background: linear-gradient(to bottom, rgba(255, 255, 255, 0.5), rgba(231, 225, 207, 0.3));
+    }
+
+    .table-view.active {
+      display: block;
+    }
+
+    .table-section {
+      background: white;
+      border: 1px solid rgba(2, 61, 96, 0.08);
+      border-radius: 16px;
+      margin-bottom: 20px;
+      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(15, 23, 42, 0.04);
+    }
+
+    .table-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      background: rgba(231, 225, 207, 0.4);
+      border-bottom: 1px solid rgba(2, 61, 96, 0.08);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .table-section-header:hover {
+      background: rgba(231, 225, 207, 0.6);
+    }
+
+    .table-section-title {
+      font-family: 'Roboto Slab', serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--vanna-navy);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .table-section-count {
+      background: rgba(21, 168, 168, 0.1);
+      color: var(--vanna-teal);
+      padding: 2px 10px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .table-section-toggle {
+      color: var(--text-muted);
+      transition: transform 0.2s ease;
+    }
+
+    .table-section.collapsed .table-section-toggle {
+      transform: rotate(-90deg);
+    }
+
+    .table-section.collapsed .table-section-content {
+      display: none;
+    }
+
+    .table-section-content {
+      padding: 8px;
+    }
+
+    .table-item {
+      display: flex;
+      align-items: flex-start;
+      padding: 12px 16px;
+      border-radius: 12px;
+      margin-bottom: 4px;
+      transition: all 0.2s ease;
+      border-left: 3px solid transparent;
+    }
+
+    .table-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .table-item:hover {
+      background: rgba(231, 225, 207, 0.3);
+    }
+
+    .table-item.added {
+      border-left-color: var(--change-added);
+    }
+
+    .table-item.removed {
+      background: var(--change-removed-bg);
+      border-left-color: var(--change-removed);
+    }
+
+    .table-item.modified {
+      border-left-color: var(--change-modified);
+    }
+
+    .table-item-icon {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+      margin-right: 12px;
+      flex-shrink: 0;
+    }
+
+    .table-item.added .table-item-icon { color: var(--change-added); }
+    .table-item.removed .table-item-icon { color: var(--change-removed); }
+    .table-item.modified .table-item-icon { color: var(--change-modified); }
+
+    .table-item-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .table-item-name {
+      font-weight: 600;
+      color: var(--vanna-navy);
+      margin-bottom: 4px;
+    }
+
+    .table-item.removed .table-item-name {
+      text-decoration: line-through;
+      opacity: 0.7;
+    }
+
+    .table-item-description {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .table-item-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .table-item-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .table-item-tag.access {
+      background: rgba(191, 19, 99, 0.1);
+      color: var(--vanna-magenta);
+    }
+
+    .table-item-tag.entity {
+      background: rgba(21, 168, 168, 0.1);
+      color: var(--vanna-teal);
+    }
+
+    .table-item-change {
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: rgba(0, 0, 0, 0.03);
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .table-item-change .old {
+      text-decoration: line-through;
+      color: var(--change-removed);
+    }
+
+    .table-item-change .arrow {
+      margin: 0 8px;
+      color: var(--text-muted);
+    }
+
+    .table-item-change .new {
+      color: var(--change-added);
+    }
+
+    /* No Changes State */
+    .no-changes {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--text-muted);
+    }
+
+    .no-changes-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .no-changes-text {
+      font-size: 16px;
+      color: var(--text-secondary);
     }
 
     /* Sidebar */
@@ -550,6 +961,133 @@ function generateBrowserUI(graphData: GraphData): string {
       font-size: 14px;
       color: var(--text-secondary);
       line-height: 1.6;
+    }
+
+    .detail-change-badge {
+      padding: 3px 10px;
+      border-radius: 9999px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .detail-change-badge.added {
+      background: var(--change-added-bg);
+      color: var(--change-added);
+    }
+
+    .detail-change-badge.removed {
+      background: var(--change-removed-bg);
+      color: var(--change-removed);
+    }
+
+    .detail-change-badge.modified {
+      background: var(--change-modified-bg);
+      color: var(--change-modified);
+    }
+
+    .change-section {
+      border-left: 3px solid var(--text-muted);
+      margin: 0 24px 0 24px;
+      padding: 16px 20px !important;
+      border-radius: 0 12px 12px 0;
+    }
+
+    .change-section.added {
+      background: var(--change-added-bg);
+      border-left-color: var(--change-added);
+    }
+
+    .change-section.removed {
+      background: var(--change-removed-bg);
+      border-left-color: var(--change-removed);
+    }
+
+    .change-section.modified {
+      background: var(--change-modified-bg);
+      border-left-color: var(--change-modified);
+    }
+
+    .change-section .detail-section-title {
+      opacity: 1;
+      margin-bottom: 12px;
+    }
+
+    .change-section.added .detail-section-title { color: var(--change-added); }
+    .change-section.removed .detail-section-title { color: var(--change-removed); }
+    .change-section.modified .detail-section-title { color: var(--change-modified); }
+
+    .change-summary {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .change-item {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .change-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .change-label {
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .change-old {
+      color: var(--change-removed);
+      text-decoration: line-through;
+    }
+
+    .change-arrow {
+      color: var(--text-muted);
+    }
+
+    .change-new {
+      color: var(--change-added);
+      font-weight: 500;
+    }
+
+    .change-item-block {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .change-description-diff {
+      margin-top: 8px;
+      width: 100%;
+      font-size: 12px;
+    }
+
+    .change-description-diff .change-old,
+    .change-description-diff .change-new {
+      padding: 8px 12px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: normal;
+    }
+
+    .change-description-diff .change-old {
+      background: rgba(196, 69, 54, 0.08);
+      border: 1px solid rgba(196, 69, 54, 0.2);
+    }
+
+    .change-description-diff .change-new {
+      background: rgba(42, 157, 143, 0.08);
+      border: 1px solid rgba(42, 157, 143, 0.2);
+    }
+
+    .change-description-diff .change-arrow {
+      text-align: center;
+      padding: 4px 0;
     }
 
     .detail-section {
@@ -865,7 +1403,12 @@ function generateBrowserUI(graphData: GraphData): string {
         <div class="search-results" id="searchResults"></div>
       </div>
 
-      <div class="filter-buttons">
+      <div class="view-tabs">
+        <button class="view-tab active" data-view="graph">Graph</button>
+        <button class="view-tab" data-view="table">Table</button>
+      </div>
+
+      <div class="filter-buttons" id="graphFilters">
         <button class="filter-btn active" data-filter="all">All</button>
         <button class="filter-btn" data-filter="function">
           <span class="dot function"></span> Functions
@@ -977,6 +1520,25 @@ function generateBrowserUI(graphData: GraphData): string {
       <div class="empty-state-title">Select a node</div>
       <div class="empty-state-text">Click on any node in the graph to view its details, connections, and schema.</div>
     </aside>
+
+    <!-- Table View -->
+    <div class="table-view" id="tableView">
+      <div id="tableContent"></div>
+    </div>
+  </div>
+
+  <!-- Review Footer -->
+  <div class="review-footer ${graphData.meta.hasChanges ? '' : 'hidden'}" id="reviewFooter">
+    <div class="changes-summary">
+      <span>Pending changes:</span>
+      ${graphData.meta.addedCount > 0 ? `<span class="change-count added">+${graphData.meta.addedCount} added</span>` : ''}
+      ${graphData.meta.removedCount > 0 ? `<span class="change-count removed">−${graphData.meta.removedCount} removed</span>` : ''}
+      ${graphData.meta.modifiedCount > 0 ? `<span class="change-count modified">~${graphData.meta.modifiedCount} modified</span>` : ''}
+    </div>
+    <div class="review-actions">
+      <button class="review-btn reject" id="rejectBtn">Reject Changes</button>
+      <button class="review-btn approve" id="approveBtn">Approve & Update Lockfile</button>
+    </div>
   </div>
 
   <script>
@@ -999,6 +1561,8 @@ function generateBrowserUI(graphData: GraphData): string {
             type: node.type,
             description: node.description,
             metadata: node.metadata,
+            changeStatus: node.changeStatus || 'unchanged',
+            changeDetails: node.changeDetails || null,
           },
         });
       }
@@ -1106,6 +1670,45 @@ function generateBrowserUI(graphData: GraphData): string {
             selector: 'node.hidden',
             style: {
               'display': 'none',
+            },
+          },
+          // Change status: Added - keep type color, add solid border + glow
+          {
+            selector: 'node[changeStatus="added"]',
+            style: {
+              'border-color': '#2a9d8f',
+              'border-width': 3,
+              'background-opacity': 0.5,
+              'shadow-blur': 15,
+              'shadow-color': 'rgba(42, 157, 143, 0.5)',
+              'shadow-opacity': 1,
+              'shadow-offset-x': 0,
+              'shadow-offset-y': 0,
+            },
+          },
+          // Change status: Removed - faded with dashed border
+          {
+            selector: 'node[changeStatus="removed"]',
+            style: {
+              'border-color': '#c44536',
+              'border-width': 2,
+              'border-style': 'dashed',
+              'background-opacity': 0.3,
+              'opacity': 0.6,
+            },
+          },
+          // Change status: Modified - keep type color, add solid border + subtle glow
+          {
+            selector: 'node[changeStatus="modified"]',
+            style: {
+              'border-color': '#fe5d26',
+              'border-width': 3,
+              'background-opacity': 0.5,
+              'shadow-blur': 12,
+              'shadow-color': 'rgba(254, 93, 38, 0.4)',
+              'shadow-opacity': 1,
+              'shadow-offset-x': 0,
+              'shadow-offset-y': 0,
             },
           },
           // Base edge style
@@ -1266,13 +1869,38 @@ function generateBrowserUI(graphData: GraphData): string {
       const response = await fetch(\`/api/node/\${type}/\${id}\`);
       const details = await response.json();
 
+      // Build change status badge if applicable
+      const changeStatus = data.changeStatus || 'unchanged';
+      const changeBadge = changeStatus !== 'unchanged'
+        ? \`<span class="detail-change-badge \${changeStatus}">\${changeStatus === 'added' ? 'New' : changeStatus === 'removed' ? 'Removed' : 'Modified'}</span>\`
+        : '';
+
       let html = \`
         <div class="detail-header">
-          <div class="detail-type \${data.type}">\${formatType(data.type)}</div>
+          <div class="detail-type \${data.type}">\${formatType(data.type)}\${changeBadge}</div>
           <div class="detail-name">\${data.label}</div>
           <div class="detail-description">\${data.description || 'No description'}</div>
         </div>
       \`;
+
+      // Show change details if this node was modified
+      if (changeStatus !== 'unchanged' && data.changeDetails) {
+        html += buildChangeSection(changeStatus, data.changeDetails);
+      } else if (changeStatus === 'added') {
+        html += \`
+          <div class="detail-section change-section added">
+            <div class="detail-section-title">Change</div>
+            <div class="change-summary">This is a newly added \${formatType(data.type).toLowerCase()}.</div>
+          </div>
+        \`;
+      } else if (changeStatus === 'removed') {
+        html += \`
+          <div class="detail-section change-section removed">
+            <div class="detail-section-title">Change</div>
+            <div class="change-summary">This \${formatType(data.type).toLowerCase()} will be removed.</div>
+          </div>
+        \`;
+      }
 
       if (data.type === 'function') {
         // Access Groups
@@ -1433,6 +2061,78 @@ function generateBrowserUI(graphData: GraphData): string {
         type += \` (\${schema.format})\`;
       }
       return type;
+    }
+
+    function buildChangeSection(changeStatus, details) {
+      if (!details) return '';
+
+      let items = [];
+
+      if (details.oldAccess && details.newAccess) {
+        const oldList = details.oldAccess.join(', ');
+        const newList = details.newAccess.join(', ');
+        items.push(\`
+          <div class="change-item">
+            <span class="change-label">Access:</span>
+            <span class="change-old">\${oldList}</span>
+            <span class="change-arrow">→</span>
+            <span class="change-new">\${newList}</span>
+          </div>
+        \`);
+      }
+
+      if (details.oldEntities && details.newEntities) {
+        const oldList = details.oldEntities.join(', ') || '(none)';
+        const newList = details.newEntities.join(', ') || '(none)';
+        items.push(\`
+          <div class="change-item">
+            <span class="change-label">Entities:</span>
+            <span class="change-old">\${oldList}</span>
+            <span class="change-arrow">→</span>
+            <span class="change-new">\${newList}</span>
+          </div>
+        \`);
+      }
+
+      if (details.oldDescription && details.newDescription) {
+        items.push(\`
+          <div class="change-item change-item-block">
+            <span class="change-label">Description:</span>
+            <div class="change-description-diff">
+              <div class="change-old">\${details.oldDescription}</div>
+              <div class="change-arrow">↓</div>
+              <div class="change-new">\${details.newDescription}</div>
+            </div>
+          </div>
+        \`);
+      }
+
+      if (details.inputsChanged) {
+        items.push(\`
+          <div class="change-item">
+            <span class="change-label">Input schema changed</span>
+          </div>
+        \`);
+      }
+
+      if (details.outputsChanged) {
+        items.push(\`
+          <div class="change-item">
+            <span class="change-label">Output schema changed</span>
+          </div>
+        \`);
+      }
+
+      if (items.length === 0) {
+        items.push('<div class="change-item"><span class="change-label">Details modified</span></div>');
+      }
+
+      return \`
+        <div class="detail-section change-section \${changeStatus}">
+          <div class="detail-section-title">Changes</div>
+          \${items.join('')}
+        </div>
+      \`;
     }
 
     // Filtering
@@ -1656,6 +2356,209 @@ function generateBrowserUI(graphData: GraphData): string {
 
       return document.fonts.check('500 12px "Space Grotesk"');
     };
+
+    // View tab switching
+    let currentView = 'graph';
+
+    function switchView(view) {
+      currentView = view;
+
+      // Update tab buttons
+      document.querySelectorAll('.view-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === view);
+      });
+
+      // Show/hide views
+      const graphContainer = document.querySelector('.graph-container');
+      const detailPanel = document.getElementById('detailPanel');
+      const tableView = document.getElementById('tableView');
+      const graphFilters = document.getElementById('graphFilters');
+      const layoutSelector = document.querySelector('.layout-selector');
+
+      if (view === 'graph') {
+        graphContainer.style.display = 'block';
+        detailPanel.style.display = 'block';
+        tableView.classList.remove('active');
+        if (graphFilters) graphFilters.style.display = 'flex';
+        if (layoutSelector) layoutSelector.style.display = 'flex';
+      } else {
+        graphContainer.style.display = 'none';
+        detailPanel.style.display = 'none';
+        tableView.classList.add('active');
+        if (graphFilters) graphFilters.style.display = 'none';
+        if (layoutSelector) layoutSelector.style.display = 'none';
+        renderTableView();
+      }
+    }
+
+    document.querySelectorAll('.view-tab').forEach(btn => {
+      btn.addEventListener('click', () => switchView(btn.dataset.view));
+    });
+
+    // Table view rendering
+    function renderTableView() {
+      const container = document.getElementById('tableContent');
+      const nodes = graphData.nodes;
+      const diff = graphData.diff;
+
+      // Group nodes by type
+      const accessGroups = nodes.filter(n => n.type === 'accessGroup');
+      const entities = nodes.filter(n => n.type === 'entity');
+      const functions = nodes.filter(n => n.type === 'function');
+
+      let html = '';
+
+      // Access Groups section
+      html += renderTableSection('Access Groups', accessGroups, 'accessGroup');
+
+      // Entities section
+      if (entities.length > 0) {
+        html += renderTableSection('Entities', entities, 'entity');
+      }
+
+      // Functions section
+      html += renderTableSection('Functions', functions, 'function');
+
+      container.innerHTML = html;
+
+      // Add collapse/expand handlers
+      container.querySelectorAll('.table-section-header').forEach(header => {
+        header.addEventListener('click', () => {
+          header.parentElement.classList.toggle('collapsed');
+        });
+      });
+    }
+
+    function renderTableSection(title, items, type) {
+      const changedCount = items.filter(n => n.changeStatus !== 'unchanged').length;
+
+      let html = '<div class="table-section">';
+      html += '<div class="table-section-header">';
+      html += '<div class="table-section-title">';
+      html += '<span class="dot" style="background: var(--node-' + (type === 'accessGroup' ? 'access' : type) + ')"></span>';
+      html += title;
+      html += '<span class="table-section-count">' + items.length + '</span>';
+      if (changedCount > 0) {
+        html += '<span class="change-badge modified">' + changedCount + '</span>';
+      }
+      html += '</div>';
+      html += '<svg class="table-section-toggle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>';
+      html += '</div>';
+      html += '<div class="table-section-content">';
+
+      // Sort: changed items first, then by name
+      const sortedItems = [...items].sort((a, b) => {
+        const aChanged = a.changeStatus !== 'unchanged' ? 0 : 1;
+        const bChanged = b.changeStatus !== 'unchanged' ? 0 : 1;
+        if (aChanged !== bChanged) return aChanged - bChanged;
+        return a.label.localeCompare(b.label);
+      });
+
+      for (const item of sortedItems) {
+        html += renderTableItem(item, type);
+      }
+
+      html += '</div></div>';
+      return html;
+    }
+
+    function renderTableItem(item, type) {
+      const statusClass = item.changeStatus !== 'unchanged' ? item.changeStatus : '';
+      const icon = item.changeStatus === 'added' ? '+' : item.changeStatus === 'removed' ? '−' : item.changeStatus === 'modified' ? '~' : '';
+
+      let html = '<div class="table-item ' + statusClass + '">';
+      html += '<div class="table-item-icon">' + icon + '</div>';
+      html += '<div class="table-item-content">';
+      html += '<div class="table-item-name">' + escapeHtml(item.label) + '</div>';
+      html += '<div class="table-item-description">' + escapeHtml(item.description) + '</div>';
+
+      // Show tags for functions
+      if (type === 'function' && graphData.edges) {
+        const accessEdges = graphData.edges.filter(e => e.source === item.id && e.type === 'requires-access');
+        const entityEdges = graphData.edges.filter(e => e.source === item.id && e.type === 'operates-on');
+
+        if (accessEdges.length > 0 || entityEdges.length > 0) {
+          html += '<div class="table-item-tags">';
+          for (const edge of accessEdges) {
+            const groupName = edge.target.replace('accessGroup:', '');
+            html += '<span class="table-item-tag access">' + escapeHtml(groupName) + '</span>';
+          }
+          for (const edge of entityEdges) {
+            const entityName = edge.target.replace('entity:', '');
+            html += '<span class="table-item-tag entity">' + escapeHtml(entityName) + '</span>';
+          }
+          html += '</div>';
+        }
+      }
+
+      // Show change details
+      if (item.changeDetails && item.changeStatus === 'modified') {
+        const details = item.changeDetails;
+        html += '<div class="table-item-change">';
+        if (details.oldAccess && details.newAccess) {
+          html += '<div>Access: <span class="old">' + details.oldAccess.join(', ') + '</span><span class="arrow">→</span><span class="new">' + details.newAccess.join(', ') + '</span></div>';
+        }
+        if (details.inputsChanged) {
+          html += '<div>Input schema changed</div>';
+        }
+        if (details.outputsChanged) {
+          html += '<div>Output schema changed</div>';
+        }
+        if (details.entitiesChanged) {
+          html += '<div>Entities: <span class="old">' + (details.oldEntities || []).join(', ') + '</span><span class="arrow">→</span><span class="new">' + (details.newEntities || []).join(', ') + '</span></div>';
+        }
+        html += '</div>';
+      }
+
+      html += '</div></div>';
+      return html;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text || '';
+      return div.innerHTML;
+    }
+
+    // Approve/Reject handlers
+    const approveBtn = document.getElementById('approveBtn');
+    const rejectBtn = document.getElementById('rejectBtn');
+
+    if (approveBtn) {
+      approveBtn.addEventListener('click', async () => {
+        approveBtn.disabled = true;
+        rejectBtn.disabled = true;
+        try {
+          const response = await fetch('/api/approve', { method: 'POST' });
+          if (response.ok) {
+            document.getElementById('reviewFooter').innerHTML =
+              '<div class="changes-summary" style="color: var(--vanna-teal);">✓ Changes approved! Lockfile updated. You can close this window.</div>';
+          } else {
+            throw new Error('Failed to approve');
+          }
+        } catch (error) {
+          alert('Failed to approve changes: ' + error.message);
+          approveBtn.disabled = false;
+          rejectBtn.disabled = false;
+        }
+      });
+    }
+
+    if (rejectBtn) {
+      rejectBtn.addEventListener('click', async () => {
+        approveBtn.disabled = true;
+        rejectBtn.disabled = true;
+        try {
+          await fetch('/api/reject', { method: 'POST' });
+          document.getElementById('reviewFooter').innerHTML =
+            '<div class="changes-summary" style="color: var(--change-removed);">✕ Changes rejected. You can close this window.</div>';
+        } catch (error) {
+          alert('Failed to reject changes: ' + error.message);
+          approveBtn.disabled = false;
+          rejectBtn.disabled = false;
+        }
+      });
+    }
 
     loadFontsAndInit();
   </script>

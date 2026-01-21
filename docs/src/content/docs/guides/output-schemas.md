@@ -79,12 +79,12 @@ export default function getUser(ctx, args): GetUserOutput {
 }
 ```
 
-### 3. Security topology
+### 3. Security
 
-Output schemas are part of the topology hash. Changes trigger review:
+Output schemas are part of the ontology hash. Changes trigger review:
 
 ```
-Topology changes detected:
+Ontology changes detected:
 
 Function changes:
   ~ getUser

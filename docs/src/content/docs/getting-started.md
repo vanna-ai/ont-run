@@ -129,7 +129,7 @@ This starts:
 
 Both servers are built on [Hono](https://hono.dev/), a lightweight web framework that runs on Bun and Node.js.
 
-## Review topology changes
+## Review ontology changes
 
 When you modify your ontology (add functions, change access), you need to approve the changes:
 

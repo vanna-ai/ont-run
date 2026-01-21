@@ -142,9 +142,9 @@ Function "updateUser" field "status" references unknown function "nonExistent" v
 Valid functions: getUserStatuses, updateUser, ...
 ```
 
-## In the topology
+## In the ontology
 
-Field references are tracked in the topology and shown in MCP tool metadata:
+Field references are tracked in the ontology and shown in MCP tool metadata:
 
 ```json
 {
