@@ -1,8 +1,19 @@
 import { createMiddleware } from "hono/factory";
 import type { Context, Next } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import type { OntologyConfig, ResolverContext, EnvironmentConfig } from "../../config/types.js";
+import type { OntologyConfig, ResolverContext, EnvironmentConfig, AuthResult } from "../../config/types.js";
 import { createLogger } from "../resolver.js";
+
+/**
+ * Normalize auth function result to AuthResult format.
+ * Supports both legacy string[] format and new AuthResult object.
+ */
+export function normalizeAuthResult(result: string[] | AuthResult): AuthResult {
+  if (Array.isArray(result)) {
+    return { groups: result };
+  }
+  return result;
+}
 
 /**
  * Context variables added by middleware
@@ -10,6 +21,7 @@ import { createLogger } from "../resolver.js";
 export interface OntologyVariables {
   resolverContext: ResolverContext;
   accessGroups: string[];
+  authResult: AuthResult;
 }
 
 /**
@@ -20,9 +32,11 @@ export function createAuthMiddleware(config: OntologyConfig) {
   return createMiddleware<{ Variables: OntologyVariables }>(
     async (c: Context<{ Variables: OntologyVariables }>, next: Next) => {
       try {
-        // Call user's auth function
-        const accessGroups = await config.auth(c.req.raw);
-        c.set("accessGroups", accessGroups);
+        // Call user's auth function and normalize result
+        const rawResult = await config.auth(c.req.raw);
+        const authResult = normalizeAuthResult(rawResult);
+        c.set("authResult", authResult);
+        c.set("accessGroups", authResult.groups);
         await next();
       } catch (error) {
         return c.json(

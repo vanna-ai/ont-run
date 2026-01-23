@@ -7,6 +7,7 @@ import {
   formatDiffForConsole,
   lockfileExists,
 } from "../lockfile/index.js";
+import { validateUserContextRequirements } from "../config/schema.js";
 import { createApiApp } from "./api/index.js";
 import { startMcpServer } from "./mcp/index.js";
 import { serve, type ServerHandle } from "../runtime/index.js";
@@ -69,6 +70,14 @@ export async function startOnt(options: StartOntOptions = {}): Promise<StartOntR
   // Load config
   consola.info("Loading ontology config...");
   const { config, configDir } = await loadConfig();
+
+  // Validate userContext requirements
+  try {
+    await validateUserContextRequirements(config);
+  } catch (error) {
+    consola.error("User context validation failed:");
+    throw error;
+  }
 
   // Check lockfile
   consola.info("Checking lockfile...");

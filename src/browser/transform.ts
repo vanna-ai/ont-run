@@ -2,7 +2,7 @@ import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { OntologyConfig } from "../config/types.js";
 import type { OntologyDiff, FunctionChange } from "../lockfile/types.js";
-import { getFieldFromMetadata } from "../config/categorical.js";
+import { getFieldFromMetadata, getUserContextFields } from "../config/categorical.js";
 
 export type NodeType = "entity" | "function" | "accessGroup";
 export type EdgeType = "operates-on" | "requires-access" | "depends-on";
@@ -18,6 +18,7 @@ export interface GraphNode {
     outputs?: Record<string, unknown>;
     resolver?: string;
     functionCount?: number;
+    usesUserContext?: boolean;
   };
 }
 
@@ -37,6 +38,7 @@ export interface GraphData {
     totalFunctions: number;
     totalEntities: number;
     totalAccessGroups: number;
+    totalUserContextFunctions: number;
   };
 }
 
@@ -131,6 +133,7 @@ export function transformToGraphData(config: OntologyConfig): GraphData {
   // Track function counts for access groups and entities
   const accessGroupCounts: Record<string, number> = {};
   const entityCounts: Record<string, number> = {};
+  let userContextFunctionCount = 0;
 
   // Initialize counts
   for (const groupName of Object.keys(config.accessGroups)) {
@@ -154,6 +157,13 @@ export function transformToGraphData(config: OntologyConfig): GraphData {
       entityCounts[entity] = (entityCounts[entity] || 0) + 1;
     }
 
+    // Check if function uses userContext
+    const userContextFields = getUserContextFields(fn.inputs);
+    const usesUserContext = userContextFields.length > 0;
+    if (usesUserContext) {
+      userContextFunctionCount++;
+    }
+
     // Create function node
     nodes.push({
       id: `function:${name}`,
@@ -164,6 +174,7 @@ export function transformToGraphData(config: OntologyConfig): GraphData {
         inputs: safeZodToJsonSchema(fn.inputs),
         outputs: fn.outputs ? safeZodToJsonSchema(fn.outputs) : undefined,
         resolver: fn.resolver,
+        usesUserContext: usesUserContext || undefined,
       },
     });
 
@@ -236,6 +247,7 @@ export function transformToGraphData(config: OntologyConfig): GraphData {
       totalFunctions: Object.keys(config.functions).length,
       totalEntities: config.entities ? Object.keys(config.entities).length : 0,
       totalAccessGroups: Object.keys(config.accessGroups).length,
+      totalUserContextFunctions: userContextFunctionCount,
     },
   };
 }

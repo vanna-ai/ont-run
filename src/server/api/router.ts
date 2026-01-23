@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { OntologyConfig, FunctionDefinition } from "../../config/types.js";
 import { loadResolver } from "../resolver.js";
+import { getUserContextFields } from "../../config/categorical.js";
 import {
   createAccessControlMiddleware,
   type OntologyVariables,
@@ -19,6 +20,9 @@ export function createApiRoutes(
   for (const [name, fn] of Object.entries(config.functions)) {
     const path = `/${name}`;
 
+    // Pre-compute userContext fields for this function
+    const userContextFields = getUserContextFields(fn.inputs);
+
     router.post(
       path,
       // Access control for this specific function
@@ -26,11 +30,21 @@ export function createApiRoutes(
       // Handler
       async (c) => {
         const resolverContext = c.get("resolverContext");
+        const authResult = c.get("authResult");
 
         // Parse and validate input
         let args: unknown;
         try {
-          const body = await c.req.json();
+          let body = await c.req.json();
+
+          // Inject user context if function requires it
+          if (userContextFields.length > 0 && authResult.user) {
+            body = { ...body };
+            for (const field of userContextFields) {
+              (body as Record<string, unknown>)[field] = authResult.user;
+            }
+          }
+
           const parsed = fn.inputs.safeParse(body);
 
           if (!parsed.success) {
@@ -45,8 +59,17 @@ export function createApiRoutes(
 
           args = parsed.data;
         } catch {
-          // No body or invalid JSON - try with empty object
-          const parsed = fn.inputs.safeParse({});
+          // No body or invalid JSON - try with empty object (with user context if needed)
+          let emptyBody: Record<string, unknown> = {};
+
+          // Inject user context even for empty body
+          if (userContextFields.length > 0 && authResult.user) {
+            for (const field of userContextFields) {
+              emptyBody[field] = authResult.user;
+            }
+          }
+
+          const parsed = fn.inputs.safeParse(emptyBody);
           if (!parsed.success) {
             return c.json(
               {

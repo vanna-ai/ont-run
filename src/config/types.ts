@@ -59,9 +59,22 @@ export interface FunctionDefinition<
 }
 
 /**
- * Auth function that determines access groups for a request
+ * Result returned by the auth function
  */
-export type AuthFunction = (req: Request) => Promise<string[]> | string[];
+export interface AuthResult {
+  /** Access groups for the current request */
+  groups: string[];
+  /** Optional user identity for row-level access control */
+  user?: Record<string, unknown>;
+}
+
+/**
+ * Auth function that determines access groups for a request.
+ * Can return either:
+ * - `string[]` - just group names (backwards compatible)
+ * - `AuthResult` - groups plus optional user identity
+ */
+export type AuthFunction = (req: Request) => Promise<string[] | AuthResult> | string[] | AuthResult;
 
 /**
  * The main Ontology configuration object

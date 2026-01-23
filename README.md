@@ -150,11 +150,16 @@ export default defineOntology({
     prod: { debug: false },
   },
 
+  // Auth returns access groups (and optional user identity)
   auth: async (req: Request) => {
     const token = req.headers.get('Authorization');
-    if (!token) return ['public'];
-    if (token === 'admin-secret') return ['admin', 'user', 'public'];
-    return ['user', 'public'];
+    if (!token) return { groups: ['public'] };
+
+    const user = await verifyToken(token);
+    return {
+      groups: user.isAdmin ? ['admin', 'user', 'public'] : ['user', 'public'],
+      user: { id: user.id, email: user.email },  // Optional: for row-level access
+    };
   },
 
   accessGroups: {
@@ -179,6 +184,68 @@ export default defineOntology({
   },
 });
 ```
+
+## Row-Level Access Control
+
+The framework handles **group-based access** (user → group → function) out of the box. For **row-level ownership** (e.g., "users can only edit their own posts"), use `userContext()`:
+
+```typescript
+import { defineOntology, userContext, z } from 'ont-run';
+
+export default defineOntology({
+  // Auth must return user identity for userContext to work
+  auth: async (req) => {
+    const user = await verifyToken(req);
+    return {
+      groups: ['user'],
+      user: { id: user.id, email: user.email },
+    };
+  },
+
+  functions: {
+    editPost: {
+      description: 'Edit a post',
+      access: ['user', 'admin'],
+      entities: ['Post'],
+      inputs: z.object({
+        postId: z.string(),
+        title: z.string(),
+        // currentUser is injected at runtime, hidden from API callers
+        currentUser: userContext(z.object({
+          id: z.string(),
+          email: z.string(),
+        })),
+      }),
+      resolver: './resolvers/editPost.ts',
+    },
+  },
+});
+```
+
+In the resolver, you receive the typed user object:
+
+```typescript
+// resolvers/editPost.ts
+export default async function editPost(
+  ctx: ResolverContext,
+  args: { postId: string; title: string; currentUser: { id: string; email: string } }
+) {
+  const post = await db.posts.findById(args.postId);
+
+  // Row-level check: only author or admin can edit
+  if (args.currentUser.id !== post.authorId && !ctx.accessGroups.includes('admin')) {
+    throw new Error('Not authorized to edit this post');
+  }
+
+  return db.posts.update(args.postId, { title: args.title });
+}
+```
+
+**Key points:**
+- `userContext()` fields are **injected** from `auth()` result's `user` field
+- They're **hidden** from public API/MCP schemas (callers don't see or provide them)
+- They're **type-safe** in resolvers
+- The review UI shows a badge for functions using user context
 
 ## The Lockfile
 

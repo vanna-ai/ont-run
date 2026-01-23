@@ -2,7 +2,7 @@ import { createHash } from "crypto";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { OntologyConfig } from "../config/types.js";
-import { getFieldFromMetadata } from "../config/categorical.js";
+import { getFieldFromMetadata, getUserContextFields } from "../config/categorical.js";
 import type {
   OntologySnapshot,
   FunctionShape,
@@ -112,6 +112,10 @@ export function extractOntology(config: OntologyConfig): OntologySnapshot {
     // Extract field references
     const fieldReferences = extractFieldReferences(fn.inputs);
 
+    // Check if function uses userContext
+    const userContextFields = getUserContextFields(fn.inputs);
+    const usesUserContext = userContextFields.length > 0;
+
     functions[name] = {
       description: fn.description,
       // Sort access groups for consistent hashing
@@ -122,6 +126,7 @@ export function extractOntology(config: OntologyConfig): OntologySnapshot {
       outputsSchema,
       fieldReferences:
         fieldReferences.length > 0 ? fieldReferences : undefined,
+      usesUserContext: usesUserContext || undefined,
     };
   }
 

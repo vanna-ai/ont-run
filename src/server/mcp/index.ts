@@ -7,17 +7,33 @@ import {
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import type { OntologyConfig, ResolverContext, EnvironmentConfig } from "../../config/types.js";
+import type { OntologyConfig, ResolverContext, EnvironmentConfig, AuthResult } from "../../config/types.js";
 import { generateMcpTools, filterToolsByAccess, createToolExecutor } from "./tools.js";
 import { createLogger } from "../resolver.js";
 import { serve } from "../../runtime/index.js";
 
 /**
- * Extract access groups from AuthInfo
+ * Normalize auth function result to AuthResult format.
  */
-function getAccessGroups(authInfo?: AuthInfo): string[] {
-  if (!authInfo?.extra?.accessGroups) return [];
-  return authInfo.extra.accessGroups as string[];
+function normalizeAuthResult(result: string[] | AuthResult): AuthResult {
+  if (Array.isArray(result)) {
+    return { groups: result };
+  }
+  return result;
+}
+
+/**
+ * Extract AuthResult from AuthInfo
+ */
+function getAuthResult(authInfo?: AuthInfo): AuthResult {
+  if (!authInfo?.extra?.authResult) {
+    // Fallback to legacy format
+    if (authInfo?.extra?.accessGroups) {
+      return { groups: authInfo.extra.accessGroups as string[] };
+    }
+    return { groups: [] };
+  }
+  return authInfo.extra.authResult as AuthResult;
 }
 
 export interface McpServerOptions {
@@ -68,8 +84,8 @@ export function createMcpServer(options: McpServerOptions): Server {
 
   // Handle list tools request - filter by per-request access groups
   server.setRequestHandler(ListToolsRequestSchema, async (_request, extra) => {
-    const accessGroups = getAccessGroups(extra.authInfo);
-    const accessibleTools = filterToolsByAccess(allTools, accessGroups);
+    const authResult = getAuthResult(extra.authInfo);
+    const accessibleTools = filterToolsByAccess(allTools, authResult.groups);
 
     return {
       tools: accessibleTools.map((tool) => ({
@@ -83,10 +99,10 @@ export function createMcpServer(options: McpServerOptions): Server {
   // Handle call tool request - validate access per-request
   server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const { name, arguments: args } = request.params;
-    const accessGroups = getAccessGroups(extra.authInfo);
+    const authResult = getAuthResult(extra.authInfo);
 
     try {
-      const result = await executeToolWithAccess(name, args || {}, accessGroups);
+      const result = await executeToolWithAccess(name, args || {}, authResult);
 
       return {
         content: [
@@ -146,15 +162,18 @@ export async function startMcpServer(options: McpServerOptions): Promise<{ port:
   app.all("/mcp", async (c) => {
     try {
       // Authenticate the request using the config's auth function
-      const accessGroups = await config.auth(c.req.raw);
+      const rawResult = await config.auth(c.req.raw);
+      const authResult = normalizeAuthResult(rawResult);
 
-      // Create AuthInfo object with access groups in extra field
+      // Create AuthInfo object with full auth result in extra field
       const authInfo: AuthInfo = {
         token: c.req.header("Authorization") || "",
         clientId: "ontology-client",
         scopes: [],
         extra: {
-          accessGroups,
+          authResult,
+          // Keep accessGroups for backwards compatibility
+          accessGroups: authResult.groups,
         },
       };
 

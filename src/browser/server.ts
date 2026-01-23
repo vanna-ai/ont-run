@@ -122,6 +122,12 @@ export async function startBrowserServer(options: BrowserServerOptions): Promise
 }
 
 function generateBrowserUI(graphData: EnhancedGraphData): string {
+  const userContextFilterBtn = graphData.meta.totalUserContextFunctions > 0
+    ? `<button class="filter-btn" data-filter="userContext" title="Functions using userContext()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>User Context (${graphData.meta.totalUserContextFunctions})
+        </button>`
+    : '';
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -405,6 +411,27 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
     .change-badge.modified {
       background: var(--change-modified-bg);
       color: var(--change-modified);
+    }
+
+    /* User Context Badge */
+    .user-context-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-size: 10px;
+      font-weight: 500;
+      background: rgba(21, 168, 168, 0.12);
+      color: var(--vanna-teal);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-left: 8px;
+    }
+
+    .user-context-badge svg {
+      width: 12px;
+      height: 12px;
     }
 
     /* Review Footer */
@@ -1419,6 +1446,7 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
         <button class="filter-btn" data-filter="accessGroup">
           <span class="dot access"></span> Access
         </button>
+        ${userContextFilterBtn}
       </div>
 
       <div class="layout-selector">
@@ -1563,6 +1591,7 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
             metadata: node.metadata,
             changeStatus: node.changeStatus || 'unchanged',
             changeDetails: node.changeDetails || null,
+            usesUserContext: node.metadata?.usesUserContext || false,
           },
         });
       }
@@ -1613,6 +1642,19 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
               'background-color': 'rgba(2, 61, 96, 0.08)',
               'width': 100,
               'height': 55,
+            },
+          },
+          // Function nodes with userContext - show indicator below label
+          {
+            selector: 'node[type="function"][?usesUserContext]',
+            style: {
+              'background-image': 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="14" fill="#e8f4f8" stroke="#023d60" stroke-width="1.5"/><g transform="translate(4, 4)" fill="none" stroke="#023d60" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></g></svg>'),
+              'background-width': '18px',
+              'background-height': '18px',
+              'background-position-x': '50%',
+              'background-position-y': '75%',
+              'text-valign': 'center',
+              'text-margin-y': -8,
             },
           },
           // Entity nodes - Teal
@@ -1875,9 +1917,14 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
         ? \`<span class="detail-change-badge \${changeStatus}">\${changeStatus === 'added' ? 'New' : changeStatus === 'removed' ? 'Removed' : 'Modified'}</span>\`
         : '';
 
+      // Build user context badge if applicable
+      const userContextBadge = data.metadata?.usesUserContext
+        ? \`<span class="user-context-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>User Context</span>\`
+        : '';
+
       let html = \`
         <div class="detail-header">
-          <div class="detail-type \${data.type}">\${formatType(data.type)}\${changeBadge}</div>
+          <div class="detail-type \${data.type}">\${formatType(data.type)}\${changeBadge}\${userContextBadge}</div>
           <div class="detail-name">\${data.label}</div>
           <div class="detail-description">\${data.description || 'No description'}</div>
         </div>
@@ -2151,6 +2198,16 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
       if (filter === 'all') {
         cy.nodes().removeClass('hidden');
         cy.edges().removeClass('hidden');
+      } else if (filter === 'userContext') {
+        // Special filter: show only functions with userContext
+        cy.nodes().forEach(node => {
+          if (node.data('type') === 'function' && node.data('usesUserContext')) {
+            node.removeClass('hidden');
+          } else {
+            node.addClass('hidden');
+          }
+        });
+        cy.edges().addClass('hidden');
       } else {
         cy.nodes().forEach(node => {
           if (node.data('type') === filter) {

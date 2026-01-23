@@ -24,6 +24,8 @@ export interface FunctionShape {
   outputsSchema?: Record<string, unknown>;
   /** Fields that reference other functions for their options */
   fieldReferences?: FieldReference[];
+  /** Whether this function uses userContext() for row-level access control */
+  usesUserContext?: boolean;
 }
 
 /**
@@ -70,6 +72,8 @@ export interface FunctionChange {
   oldEntities?: string[];
   newEntities?: string[];
   fieldReferencesChanged?: boolean;
+  userContextChanged?: boolean;
+  usesUserContext?: boolean;
 }
 
 /**

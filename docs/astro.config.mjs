@@ -61,6 +61,7 @@ export default defineConfig({
           items: [
             { label: "defineOntology", link: "/api/define-ontology/" },
             { label: "fieldFrom", link: "/api/field-from/" },
+            { label: "userContext", link: "/api/user-context/" },
           ],
         },
       ],

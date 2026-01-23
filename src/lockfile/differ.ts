@@ -114,6 +114,8 @@ export function diffOntology(
       const fieldReferencesChanged =
         JSON.stringify(oldFn.fieldReferences) !==
         JSON.stringify(newFn.fieldReferences);
+      const userContextChanged =
+        !!oldFn.usesUserContext !== !!newFn.usesUserContext;
 
       if (
         accessChanged ||
@@ -121,7 +123,8 @@ export function diffOntology(
         inputsChanged ||
         outputsChanged ||
         entitiesChanged ||
-        fieldReferencesChanged
+        fieldReferencesChanged ||
+        userContextChanged
       ) {
         functions.push({
           name,
@@ -136,6 +139,8 @@ export function diffOntology(
           oldEntities: entitiesChanged ? oldFn.entities : undefined,
           newEntities: entitiesChanged ? newFn.entities : undefined,
           fieldReferencesChanged: fieldReferencesChanged || undefined,
+          userContextChanged: userContextChanged || undefined,
+          usesUserContext: userContextChanged ? newFn.usesUserContext : undefined,
         });
       }
     }
@@ -233,6 +238,9 @@ export function formatDiffForConsole(diff: OntologyDiff): string {
         }
         if (fn.fieldReferencesChanged) {
           lines.push(`    Field references: changed`);
+        }
+        if (fn.userContextChanged) {
+          lines.push(`    User context: ${fn.usesUserContext ? 'added' : 'removed'}`);
         }
       }
     }

@@ -51,7 +51,7 @@ export const initCommand = defineCommand({
     }
 
     // Write ontology.config.ts
-    const configTemplate = `import { defineOntology } from 'ont-run';
+    const configTemplate = `import { defineOntology, userContext } from 'ont-run';
 import { z } from 'zod';
 
 export default defineOntology({
@@ -63,13 +63,22 @@ export default defineOntology({
   },
 
   // Pluggable auth - customize this for your use case
+  // Return { groups, user } for row-level access control
   auth: async (req) => {
     const token = req.headers.get('Authorization');
-    // Return access groups based on auth
+    // Return access groups and optional user data
     // This is where you'd verify JWTs, API keys, etc.
-    if (!token) return ['public'];
-    if (token === 'admin-secret') return ['admin', 'support', 'public'];
-    return ['support', 'public'];
+    if (!token) return { groups: ['public'] };
+    if (token === 'admin-secret') {
+      return {
+        groups: ['admin', 'support', 'public'],
+        user: { id: 'admin-1', email: 'admin@example.com' },
+      };
+    }
+    return {
+      groups: ['support', 'public'],
+      user: { id: 'user-1', email: 'user@example.com' },
+    };
   },
 
   accessGroups: {
@@ -78,21 +87,32 @@ export default defineOntology({
     admin: { description: 'Administrators' },
   },
 
+  entities: {
+    User: { description: 'A user account' },
+  },
+
   functions: {
     // Example: Public function
     healthCheck: {
       description: 'Check API health status',
       access: ['public', 'support', 'admin'],
+      entities: [],
       inputs: z.object({}),
       resolver: './resolvers/healthCheck.ts',
     },
 
-    // Example: Restricted function
+    // Example: Restricted function with row-level access
     getUser: {
       description: 'Get user details by ID',
       access: ['support', 'admin'],
+      entities: ['User'],
       inputs: z.object({
         userId: z.string().uuid(),
+        // currentUser is injected from auth - not visible to API callers
+        currentUser: userContext(z.object({
+          id: z.string(),
+          email: z.string(),
+        })),
       }),
       resolver: './resolvers/getUser.ts',
     },
@@ -101,6 +121,7 @@ export default defineOntology({
     deleteUser: {
       description: 'Delete a user account',
       access: ['admin'],
+      entities: ['User'],
       inputs: z.object({
         userId: z.string().uuid(),
         reason: z.string().optional(),
@@ -132,10 +153,21 @@ export default async function healthCheck(ctx: ResolverContext, args: {}) {
 
 interface GetUserArgs {
   userId: string;
+  currentUser: {
+    id: string;
+    email: string;
+  };
 }
 
 export default async function getUser(ctx: ResolverContext, args: GetUserArgs) {
   ctx.logger.info(\`Getting user: \${args.userId}\`);
+  ctx.logger.info(\`Requested by: \${args.currentUser.email}\`);
+
+  // Example: Check if user can access this resource
+  // Support can only view their own account
+  if (!ctx.accessGroups.includes('admin') && args.userId !== args.currentUser.id) {
+    throw new Error('You can only view your own account');
+  }
 
   // This is where you'd query your database
   // Example response:

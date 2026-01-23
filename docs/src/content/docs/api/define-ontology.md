@@ -53,18 +53,42 @@ Each environment can have:
 
 #### `auth`
 
-**Type:** `(req: Request) => Promise<string[]> | string[]`
+**Type:** `(req: Request) => Promise<AuthResult | string[]> | AuthResult | string[]`
 **Required:** Yes
 
-Function that determines which access groups a request belongs to.
+Function that determines which access groups a request belongs to. Can also return user identity for row-level access control.
+
+**Return types:**
+- `string[]` — Just access group names (legacy, still supported)
+- `AuthResult` — Groups plus optional user identity
 
 ```typescript
+interface AuthResult {
+  groups: string[];
+  user?: Record<string, unknown>;  // For row-level access
+}
+```
+
+**Examples:**
+
+```typescript
+// Simple: just groups
 auth: async (req) => {
   const token = req.headers.get('Authorization');
-  if (!token) return ['public'];
+  if (!token) return { groups: ['public'] };
+  return { groups: ['user', 'admin'] };
+}
+
+// With user identity (for userContext)
+auth: async (req) => {
+  const token = req.headers.get('Authorization');
+  if (!token) return { groups: ['public'] };
 
   const user = await validateToken(token);
-  return user ? ['user', 'admin'] : ['public'];
+  return {
+    groups: user.isAdmin ? ['admin', 'user'] : ['user'],
+    user: { id: user.id, email: user.email },
+  };
 }
 ```
 

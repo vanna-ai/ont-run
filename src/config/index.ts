@@ -1,5 +1,5 @@
 export { defineOntology } from "./define.js";
-export { fieldFrom } from "./categorical.js";
+export { fieldFrom, userContext } from "./categorical.js";
 export type {
   OntologyConfig,
   FunctionDefinition,
@@ -7,6 +7,7 @@ export type {
   EnvironmentConfig,
   EntityDefinition,
   AuthFunction,
+  AuthResult,
   ResolverContext,
   ResolverFunction,
   FieldOption,
@@ -20,4 +21,5 @@ export {
   validateAccessGroups,
   validateEntityReferences,
   validateFieldFromReferences,
+  validateUserContextRequirements,
 } from "./schema.js";

@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { getFieldFromMetadata } from "./categorical.js";
+import { getFieldFromMetadata, getUserContextFields } from "./categorical.js";
+import type { OntologyConfig } from "./types.js";
 
 /**
  * Schema for environment configuration
@@ -192,5 +193,67 @@ export function validateFieldFromReferences(
         );
       }
     }
+  }
+}
+
+/**
+ * Validate that functions using userContext() will receive user data from auth.
+ * This does a runtime check by calling auth with a mock request to verify it returns
+ * an AuthResult with a user field.
+ *
+ * @param config - The full OntologyConfig (needed for the actual auth function)
+ */
+export async function validateUserContextRequirements(
+  config: OntologyConfig
+): Promise<void> {
+  // Find functions that use userContext
+  const functionsWithUserContext: string[] = [];
+
+  for (const [fnName, fn] of Object.entries(config.functions)) {
+    const userContextFields = getUserContextFields(fn.inputs as z.ZodType);
+    if (userContextFields.length > 0) {
+      functionsWithUserContext.push(fnName);
+    }
+  }
+
+  // If no functions use userContext, no validation needed
+  if (functionsWithUserContext.length === 0) {
+    return;
+  }
+
+  // Create a mock request to test the auth function
+  const mockRequest = new Request("http://localhost/test", {
+    headers: { Authorization: "test-token" },
+  });
+
+  try {
+    const authResult = await config.auth(mockRequest);
+
+    // Check if auth returns an object with user field
+    const hasUserField =
+      authResult !== null &&
+      typeof authResult === "object" &&
+      !Array.isArray(authResult) &&
+      "user" in authResult;
+
+    if (!hasUserField) {
+      throw new Error(
+        `The following functions use userContext() but auth() does not return a user object:\n` +
+          `  ${functionsWithUserContext.join(", ")}\n\n` +
+          `To fix this, update your auth function to return an AuthResult:\n` +
+          `  auth: async (req) => {\n` +
+          `    return {\n` +
+          `      groups: ['user'],\n` +
+          `      user: { id: '...', email: '...' }  // Add user data here\n` +
+          `    };\n` +
+          `  }`
+      );
+    }
+  } catch (error) {
+    // If auth throws, we can't validate - but that's ok, the error will surface at request time
+    if (error instanceof Error && error.message.includes("userContext")) {
+      throw error; // Re-throw our validation error
+    }
+    // Otherwise, auth function had an error with the mock request - skip validation
   }
 }

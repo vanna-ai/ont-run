@@ -70,9 +70,24 @@ export async function loadConfig(configPath?: string): Promise<{
 
     return { config, configDir, configPath: resolvedPath };
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ERR_MODULE_NOT_FOUND") {
-      throw new Error(`Failed to load config: ${resolvedPath}`);
+    const err = error as NodeJS.ErrnoException & { message?: string };
+    if (err.code === "ERR_MODULE_NOT_FOUND") {
+      // Check if it's a missing dependency vs missing config
+      const message = err.message || "";
+      if (message.includes("ont-run") || message.includes("zod")) {
+        throw new Error(
+          `Failed to load config: ${resolvedPath}\n\n` +
+            `Missing dependencies. Run 'bun install' first.`
+        );
+      }
+      throw new Error(
+        `Failed to load config: ${resolvedPath}\n\n` +
+          `Module not found: ${message}`
+      );
     }
-    throw error;
+    throw new Error(
+      `Failed to load config: ${resolvedPath}\n\n` +
+        `${err.message || error}`
+    );
   }
 }

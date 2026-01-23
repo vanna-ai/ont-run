@@ -32,7 +32,7 @@
 
 // Main API
 export { defineOntology } from "./config/define.js";
-export { fieldFrom } from "./config/categorical.js";
+export { fieldFrom, userContext } from "./config/categorical.js";
 export { startOnt } from "./server/start.js";
 export type { StartOntOptions, StartOntResult } from "./server/start.js";
 
@@ -44,6 +44,7 @@ export type {
   EnvironmentConfig,
   EntityDefinition,
   AuthFunction,
+  AuthResult,
   ResolverContext,
   ResolverFunction,
   FieldOption,

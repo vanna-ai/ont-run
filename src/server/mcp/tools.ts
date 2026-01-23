@@ -5,8 +5,9 @@ import type {
   FunctionDefinition,
   ResolverContext,
   EnvironmentConfig,
+  AuthResult,
 } from "../../config/types.js";
-import { getFieldFromMetadata } from "../../config/categorical.js";
+import { getFieldFromMetadata, getUserContextFields, hasUserContextMetadata } from "../../config/categorical.js";
 import { loadResolver, type Logger } from "../resolver.js";
 
 /**
@@ -30,6 +31,48 @@ export interface McpTool {
   access: string[];
   entities: string[];
   fieldReferences?: McpFieldReference[];
+}
+
+/**
+ * Strip userContext fields from a JSON Schema object.
+ * These fields are injected at runtime and should not be exposed to callers.
+ */
+function stripUserContextFromJsonSchema(
+  jsonSchema: Record<string, unknown>,
+  zodSchema: z.ZodType<unknown>
+): Record<string, unknown> {
+  // Only strip from object schemas
+  if (jsonSchema.type !== "object" || !jsonSchema.properties) {
+    return jsonSchema;
+  }
+
+  // Get userContext field names from the Zod schema
+  const userContextFields = getUserContextFields(zodSchema);
+  if (userContextFields.length === 0) {
+    return jsonSchema;
+  }
+
+  // Create a new schema without userContext fields
+  const properties = { ...(jsonSchema.properties as Record<string, unknown>) };
+  const required = jsonSchema.required
+    ? [...(jsonSchema.required as string[])]
+    : undefined;
+
+  for (const field of userContextFields) {
+    delete properties[field];
+    if (required) {
+      const idx = required.indexOf(field);
+      if (idx !== -1) {
+        required.splice(idx, 1);
+      }
+    }
+  }
+
+  return {
+    ...jsonSchema,
+    properties,
+    required: required && required.length > 0 ? required : undefined,
+  };
 }
 
 /**
@@ -101,6 +144,8 @@ export function generateMcpTools(config: OntologyConfig): McpTool[] {
       }) as Record<string, unknown>;
       // Remove $schema key if present
       delete inputSchema.$schema;
+      // Strip userContext fields - these are injected at runtime
+      inputSchema = stripUserContextFromJsonSchema(inputSchema, fn.inputs);
     } catch {
       inputSchema = { type: "object", properties: {} };
     }
@@ -149,7 +194,7 @@ export function filterToolsByAccess(
 }
 
 /**
- * Create a tool executor function that accepts per-request access groups
+ * Create a tool executor function that accepts per-request auth result
  */
 export function createToolExecutor(
   config: OntologyConfig,
@@ -158,7 +203,13 @@ export function createToolExecutor(
   envConfig: EnvironmentConfig,
   logger: Logger
 ) {
-  return async (toolName: string, args: unknown, accessGroups: string[]): Promise<unknown> => {
+  // Pre-compute userContext fields for each function
+  const userContextFieldsCache = new Map<string, string[]>();
+  for (const [name, fn] of Object.entries(config.functions)) {
+    userContextFieldsCache.set(name, getUserContextFields(fn.inputs));
+  }
+
+  return async (toolName: string, args: unknown, authResult: AuthResult): Promise<unknown> => {
     const fn = config.functions[toolName];
 
     if (!fn) {
@@ -167,7 +218,7 @@ export function createToolExecutor(
 
     // Check access using per-request access groups
     const hasAccess = fn.access.some((group) =>
-      accessGroups.includes(group)
+      authResult.groups.includes(group)
     );
 
     if (!hasAccess) {
@@ -176,8 +227,18 @@ export function createToolExecutor(
       );
     }
 
+    // Inject user context if function requires it
+    const userContextFields = userContextFieldsCache.get(toolName) || [];
+    let argsWithContext = args;
+    if (userContextFields.length > 0 && authResult.user) {
+      argsWithContext = { ...(args as Record<string, unknown>) };
+      for (const field of userContextFields) {
+        (argsWithContext as Record<string, unknown>)[field] = authResult.user;
+      }
+    }
+
     // Validate input
-    const parsed = fn.inputs.safeParse(args);
+    const parsed = fn.inputs.safeParse(argsWithContext);
     if (!parsed.success) {
       throw new Error(
         `Invalid input for tool "${toolName}": ${parsed.error.message}`
@@ -189,7 +250,7 @@ export function createToolExecutor(
       env,
       envConfig,
       logger,
-      accessGroups,
+      accessGroups: authResult.groups,
     };
 
     // Load and execute resolver
