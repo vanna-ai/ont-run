@@ -3,7 +3,7 @@ title: Access Control
 description: Control who can call which functions
 ---
 
-ont uses a group-based access control system. You define access groups, then specify which groups can call each function.
+ont-run uses a group-based access control system. You define access groups, then specify which groups can call each function.
 
 ## Defining access groups
 
@@ -142,7 +142,7 @@ export default function getUser(
 
 ## Validation
 
-ont validates that all access group references exist:
+ont-run validates that all access group references exist:
 
 ```typescript
 functions: {

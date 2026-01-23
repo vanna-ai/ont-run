@@ -4,9 +4,10 @@ import type {
   OntologyConfig,
   FunctionDefinition,
   ResolverContext,
+  EnvironmentConfig,
 } from "../../config/types.js";
 import { getFieldFromMetadata } from "../../config/categorical.js";
-import { loadResolver } from "../resolver.js";
+import { loadResolver, type Logger } from "../resolver.js";
 
 /**
  * Field reference info for MCP tools
@@ -148,23 +149,25 @@ export function filterToolsByAccess(
 }
 
 /**
- * Create a tool executor function
+ * Create a tool executor function that accepts per-request access groups
  */
 export function createToolExecutor(
   config: OntologyConfig,
   configDir: string,
-  resolverContext: ResolverContext
+  env: string,
+  envConfig: EnvironmentConfig,
+  logger: Logger
 ) {
-  return async (toolName: string, args: unknown): Promise<unknown> => {
+  return async (toolName: string, args: unknown, accessGroups: string[]): Promise<unknown> => {
     const fn = config.functions[toolName];
 
     if (!fn) {
       throw new Error(`Unknown tool: ${toolName}`);
     }
 
-    // Check access
+    // Check access using per-request access groups
     const hasAccess = fn.access.some((group) =>
-      resolverContext.accessGroups.includes(group)
+      accessGroups.includes(group)
     );
 
     if (!hasAccess) {
@@ -180,6 +183,14 @@ export function createToolExecutor(
         `Invalid input for tool "${toolName}": ${parsed.error.message}`
       );
     }
+
+    // Create resolver context with per-request access groups
+    const resolverContext: ResolverContext = {
+      env,
+      envConfig,
+      logger,
+      accessGroups,
+    };
 
     // Load and execute resolver
     const resolver = await loadResolver(fn.resolver, configDir);

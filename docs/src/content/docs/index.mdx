@@ -1,5 +1,5 @@
 ---
-title: ont
+title: ont-run
 description: Ontology-first backends with human-approved AI access & edits
 template: splash
 hero:
@@ -9,18 +9,22 @@ hero:
       link: /getting-started/
       icon: right-arrow
     - text: View on GitHub
-      link: https://github.com/anthropics/ont
+      link: https://github.com/vanna-ai/ont-run
       icon: external
       variant: minimal
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-## What is ont?
+<a href="https://github.com/vanna-ai/ont-run" target="_blank">
+  <img src="https://img.shields.io/github/stars/vanna-ai/ont-run?style=for-the-badge&logo=github&color=15a8a8" alt="GitHub stars" />
+</a>
+
+## What is ont-run?
 
 Your ontology is your business in code—what exists, what can be done, who can do it.
 
-**ont** is a framework where:
+**ont-run** is a framework where:
 
 1. You define your **business structure** as an ontology — entities, functions, access groups
 2. AI agents implement the logic and call your functions via MCP
@@ -48,7 +52,7 @@ The ontology is your operational DNA. AI writes code, but only humans change wha
 ## Quick Example
 
 ```typescript
-import { defineOntology, fieldFrom, z } from 'ont';
+import { defineOntology, fieldFrom, z } from 'ont-run';
 
 export default defineOntology({
   name: 'my-api',

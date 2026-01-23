@@ -1,14 +1,14 @@
 {
   "name": "ont-run",
-  "version": "0.1.0",
-  "description": "Ontology-first backends with human-approved AI access & edits",
+  "version": "0.0.2",
+  "description": "Ontology-enforced API framework for AI coding agents",
   "type": "module",
   "bin": {
-    "ont": "./dist/bin/ont.js"
+    "ont-run": "./dist/bin/ont.js"
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./dist/src/index.d.ts",
       "bun": "./src/index.ts",
       "default": "./dist/index.js"
     }
@@ -22,7 +22,8 @@
     "dev": "bun run bin/ont.ts",
     "build": "bun build ./src/index.ts --outdir ./dist --target node",
     "build:cli": "bun build ./bin/ont.ts --outfile ./dist/bin/ont.js --target node --external @modelcontextprotocol/sdk",
-    "prepublishOnly": "bun run build && bun run build:cli",
+    "build:types": "tsc --declaration --emitDeclarationOnly",
+    "prepublishOnly": "bun run build && bun run build:cli && bun run build:types",
     "docs": "cd docs && bun run dev",
     "docs:build": "cd docs && bun run build",
     "docs:preview": "cd docs && bun run preview"
@@ -50,11 +51,13 @@
     }
   },
   "keywords": [
-    "backend",
     "api",
-    "mcp",
-    "governance",
-    "ai-safe"
+    "framework",
+    "access-control",
+    "ai-agents",
+    "hono",
+    "zod",
+    "typescript"
   ],
   "license": "MIT"
 }

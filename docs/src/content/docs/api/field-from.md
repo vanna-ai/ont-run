@@ -29,7 +29,7 @@ Returns a Zod string schema with metadata attached. The schema validates that th
 ## Usage
 
 ```typescript
-import { defineOntology, fieldFrom, z } from 'ont';
+import { defineOntology, fieldFrom, z } from 'ont-run';
 
 export default defineOntology({
   // ...
@@ -106,7 +106,7 @@ interface FieldOption {
 Example resolver:
 
 ```typescript
-import type { ResolverContext, FieldOption } from 'ont';
+import type { ResolverContext, FieldOption } from 'ont-run';
 
 export default function getPriorities(
   ctx: ResolverContext

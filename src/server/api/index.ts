@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import consola from "consola";
 import type { OntologyConfig } from "../../config/types.js";
 import {
   createAuthMiddleware,
@@ -8,6 +9,7 @@ import {
   type OntologyVariables,
 } from "./middleware.js";
 import { createApiRoutes, getFunctionsInfo } from "./router.js";
+import { findMissingResolvers } from "../resolver.js";
 
 export interface ApiServerOptions {
   /** The ontology configuration */
@@ -23,7 +25,7 @@ export interface ApiServerOptions {
 /**
  * Create the Hono API app from an OntologyConfig
  */
-export function createApiApp(options: ApiServerOptions): Hono {
+export function createApiApp(options: ApiServerOptions): Hono<{ Variables: OntologyVariables }> {
   const { config, configDir, env, cors: enableCors = true } = options;
 
   // Get environment config
@@ -32,6 +34,15 @@ export function createApiApp(options: ApiServerOptions): Hono {
     throw new Error(
       `Unknown environment "${env}". Available: ${Object.keys(config.environments).join(", ")}`
     );
+  }
+
+  // Check for missing resolvers
+  const missingResolvers = findMissingResolvers(config, configDir);
+  if (missingResolvers.length > 0) {
+    consola.warn(`Missing resolvers (${missingResolvers.length}):`);
+    for (const resolver of missingResolvers) {
+      consola.warn(`  - ${resolver}`);
+    }
   }
 
   const app = new Hono<{ Variables: OntologyVariables }>();

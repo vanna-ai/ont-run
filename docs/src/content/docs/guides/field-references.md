@@ -12,7 +12,7 @@ Instead of hardcoding options or using a separate "categorical" concept, **optio
 ## Basic example
 
 ```typescript
-import { defineOntology, fieldFrom, z } from 'ont';
+import { defineOntology, fieldFrom, z } from 'ont-run';
 
 export default defineOntology({
   // ...
@@ -48,7 +48,7 @@ export default defineOntology({
 The resolver for `getUserStatuses`:
 
 ```typescript
-import type { ResolverContext, FieldOption } from 'ont';
+import type { ResolverContext, FieldOption } from 'ont-run';
 
 export default function getUserStatuses(
   ctx: ResolverContext
@@ -128,7 +128,7 @@ export default async function searchUsers(
 
 ## Validation
 
-ont validates that `fieldFrom()` references existing functions:
+ont-run validates that `fieldFrom()` references existing functions:
 
 ```typescript
 inputs: z.object({

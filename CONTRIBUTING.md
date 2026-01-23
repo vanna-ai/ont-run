@@ -4,7 +4,7 @@
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-username/ont.git
+git clone https://github.com/vanna-ai/ont-run.git
 cd ont
 
 # Install dependencies
@@ -23,17 +23,8 @@ cd test-project
 # Review ontology
 bun run ../bin/ont.ts review --auto-approve
 
-# Start the API server only (no MCP)
-bun run ../bin/ont.ts start --api-only
-
-# Server mode flags:
-#   --api-only   → REST API only (default port 3000)
-#   --mcp-only   → MCP server only (default port 3001)
-#   (neither)    → Both servers
-#
-# Port flags:
-#   --port       → REST API port (default 3000)
-#   --mcp-port   → MCP server port (default 3001)
+# Start the server (uses server.ts created by init)
+bun run server.ts
 ```
 
 ## Project Structure
@@ -43,7 +34,7 @@ ont/
 ├── bin/ont.ts              # CLI entry point
 ├── src/
 │   ├── index.ts            # Public exports
-│   ├── cli/                # CLI commands (init, start, review)
+│   ├── cli/                # CLI commands (init, review)
 │   ├── config/             # defineOntology() and types
 │   ├── lockfile/           # Hashing and diffing logic
 │   ├── server/
@@ -77,8 +68,9 @@ bun run build:cli     # Builds bin/ont.ts -> dist/bin/ont.js
    rm -rf test-project
    bun run bin/ont.ts init test-project
    cd test-project
+   bun install
    bun run ../bin/ont.ts review --auto-approve
-   bun run ../bin/ont.ts start --api-only --port 3000
+   bun run server.ts
    # In another terminal:
    curl -X POST http://localhost:3000/api/healthCheck
    ```

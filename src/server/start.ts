@@ -16,8 +16,6 @@ export interface StartOntOptions {
   port?: number;
   /** Port for MCP server (default: 3001) */
   mcpPort?: number;
-  /** Access groups for MCP (default: ['admin']) */
-  mcpAccess?: string[];
   /** Environment to use (default: 'dev') */
   env?: string;
   /** Mode: 'development' warns on lockfile issues, 'production' fails. Auto-detected from NODE_ENV if not set. */
@@ -60,7 +58,6 @@ export async function startOnt(options: StartOntOptions = {}): Promise<StartOntR
   const {
     port = 3000,
     mcpPort = 3001,
-    mcpAccess = ["admin"],
     env = "dev",
     apiOnly = false,
     mcpOnly = false,
@@ -81,8 +78,8 @@ export async function startOnt(options: StartOntOptions = {}): Promise<StartOntR
     const message = `No ont.lock file found.\nRun \`bun run review\` to approve the initial ontology.`;
 
     if (isDev) {
-      consola.warn(message);
-      consola.warn("Continuing in development mode without lockfile...\n");
+      consola.warn("No ont.lock file found.");
+      consola.warn("Run `npx ont-run review` to approve the initial ontology.\n");
     } else {
       consola.error(message);
       throw new Error("Missing lockfile in production mode");
@@ -98,7 +95,7 @@ export async function startOnt(options: StartOntOptions = {}): Promise<StartOntR
       if (isDev) {
         consola.warn("Lockfile mismatch detected:");
         console.log("\n" + formatDiffForConsole(diff) + "\n");
-        consola.warn("Continuing in development mode with unapproved changes...\n");
+        consola.warn("Run `npx ont-run review` to approve these changes.\n");
       } else {
         consola.error(message);
         console.log("\n" + formatDiffForConsole(diff) + "\n");
@@ -140,13 +137,12 @@ export async function startOnt(options: StartOntOptions = {}): Promise<StartOntR
       config,
       configDir,
       env,
-      accessGroups: mcpAccess,
       port: mcpPort,
     });
     result.mcp = mcpServer;
 
-    consola.success(`MCP server running at http://localhost:${mcpServer.port}/sse`);
-    consola.info(`Access groups: ${mcpAccess.join(", ")}`);
+    consola.success(`MCP server running at http://localhost:${mcpServer.port}/mcp`);
+    consola.info(`Auth: per-request (using config.auth)`);
   }
 
   consola.info("Press Ctrl+C to stop");

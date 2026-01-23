@@ -1,5 +1,6 @@
 import { join, dirname, isAbsolute } from "path";
-import type { ResolverFunction, ResolverContext } from "../config/types.js";
+import { existsSync } from "fs";
+import type { ResolverFunction, ResolverContext, OntologyConfig } from "../config/types.js";
 
 /**
  * Cache of loaded resolvers to avoid re-importing
@@ -57,6 +58,33 @@ export async function loadResolver(
 export function clearResolverCache(): void {
   resolverCache.clear();
 }
+
+/**
+ * Check which resolvers are missing and return their paths
+ */
+export function findMissingResolvers(
+  config: OntologyConfig,
+  configDir: string
+): string[] {
+  const missing: string[] = [];
+
+  for (const [name, fn] of Object.entries(config.functions)) {
+    const fullPath = isAbsolute(fn.resolver)
+      ? fn.resolver
+      : join(configDir, fn.resolver);
+
+    if (!existsSync(fullPath)) {
+      missing.push(fn.resolver);
+    }
+  }
+
+  return missing;
+}
+
+/**
+ * Logger type returned by createLogger
+ */
+export type Logger = ReturnType<typeof createLogger>;
 
 /**
  * Create a logger for a resolver context

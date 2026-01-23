@@ -1,7 +1,453 @@
-/* Custom styles for ont docs */
+/* Custom styles for ont-run docs - Vanna Brand Theme */
 
+/* ============================================
+   Vanna Brand Colors
+   ============================================ */
 :root {
-  --sl-color-accent-low: #1a1a2e;
-  --sl-color-accent: #4f46e5;
-  --sl-color-accent-high: #818cf8;
+  /* Vanna palette */
+  --vanna-navy: #023d60;
+  --vanna-cream: #e7e1cf;
+  --vanna-teal: #15a8a8;
+  --vanna-orange: #fe5d26;
+  --vanna-magenta: #bf1363;
+
+  /* Semantic colors */
+  --bg-primary: #f8f6f1;
+  --bg-secondary: #ffffff;
+  --text-primary: var(--vanna-navy);
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+
+  /* Shadows - teal tinted glows */
+  --shadow-subtle: 0 4px 15px rgba(21, 168, 168, 0.2);
+  --shadow-card: 0 15px 40px rgba(15, 23, 42, 0.08);
+  --shadow-card-hover: 0 25px 55px rgba(21, 168, 168, 0.18);
+  --shadow-large: 0 30px 80px rgba(21, 168, 168, 0.15);
+}
+
+/* ============================================
+   Light Mode (default)
+   ============================================ */
+:root {
+  /* Starlight accent colors */
+  --sl-color-accent-low: rgba(21, 168, 168, 0.15);
+  --sl-color-accent: var(--vanna-teal);
+  --sl-color-accent-high: var(--vanna-navy);
+
+  /* Background colors */
+  --sl-color-bg: var(--vanna-cream);
+  --sl-color-bg-nav: rgba(231, 225, 207, 0.9);
+  --sl-color-bg-sidebar: rgba(231, 225, 207, 0.5);
+  --sl-color-bg-inline-code: rgba(2, 61, 96, 0.08);
+
+  /* Text colors */
+  --sl-color-text: var(--vanna-navy);
+  --sl-color-text-accent: var(--vanna-teal);
+
+  /* Border colors */
+  --sl-color-hairline: rgba(21, 168, 168, 0.3);
+  --sl-color-hairline-light: rgba(2, 61, 96, 0.08);
+
+  /* White for contrast elements */
+  --sl-color-white: #ffffff;
+  --sl-color-black: var(--vanna-navy);
+}
+
+/* ============================================
+   Dark Mode
+   ============================================ */
+:root[data-theme="dark"] {
+  /* Starlight accent colors */
+  --sl-color-accent-low: rgba(21, 168, 168, 0.2);
+  --sl-color-accent: var(--vanna-teal);
+  --sl-color-accent-high: #e7e1cf;
+
+  /* Background colors */
+  --sl-color-bg: #0a1929;
+  --sl-color-bg-nav: rgba(2, 61, 96, 0.95);
+  --sl-color-bg-sidebar: rgba(2, 61, 96, 0.5);
+  --sl-color-bg-inline-code: rgba(21, 168, 168, 0.15);
+
+  /* Text colors */
+  --sl-color-text: var(--vanna-cream);
+  --sl-color-text-accent: var(--vanna-teal);
+
+  /* Border colors */
+  --sl-color-hairline: rgba(21, 168, 168, 0.3);
+  --sl-color-hairline-light: rgba(231, 225, 207, 0.08);
+
+  /* Contrast elements */
+  --sl-color-white: var(--vanna-cream);
+  --sl-color-black: #0a1929;
+
+  /* Dark mode shadows */
+  --shadow-card: 0 15px 40px rgba(0, 0, 0, 0.3);
+  --shadow-card-hover: 0 25px 55px rgba(21, 168, 168, 0.25);
+}
+
+/* ============================================
+   Page Background Gradients
+   ============================================ */
+body {
+  background:
+    radial-gradient(circle at 2px 2px, rgba(2, 61, 96, 0.3) 1px, transparent 0),
+    radial-gradient(circle at top left, rgba(21, 168, 168, 0.12), transparent 60%),
+    linear-gradient(to bottom, var(--vanna-cream), white 30%, white 70%, var(--vanna-cream));
+  background-size: 32px 32px, 100% 100%, 100% 100%;
+  background-attachment: fixed;
+}
+
+:root[data-theme="dark"] body {
+  background:
+    radial-gradient(circle at 2px 2px, rgba(231, 225, 207, 0.15) 1px, transparent 0),
+    radial-gradient(circle at top left, rgba(21, 168, 168, 0.15), transparent 60%),
+    linear-gradient(to bottom, #0a1929, rgba(2, 61, 96, 0.3) 30%, rgba(2, 61, 96, 0.3) 70%, #0a1929);
+  background-size: 32px 32px, 100% 100%, 100% 100%;
+  background-attachment: fixed;
+}
+
+/* ============================================
+   Typography
+   ============================================ */
+:root {
+  --sl-font: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --sl-font-mono: "Space Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+/* Headings use Roboto Slab */
+h1, h2, h3, h4, h5, h6,
+.sl-markdown-content h1,
+.sl-markdown-content h2,
+.sl-markdown-content h3,
+.sl-markdown-content h4,
+.sl-markdown-content h5,
+.sl-markdown-content h6 {
+  font-family: "Roboto Slab", Georgia, serif;
+  font-weight: 600;
+}
+
+/* Site title in header */
+.site-title {
+  font-family: "Roboto Slab", Georgia, serif !important;
+  font-weight: 600;
+  color: var(--vanna-teal) !important;
+}
+
+/* ============================================
+   Links
+   ============================================ */
+a {
+  color: var(--vanna-teal);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--vanna-orange);
+}
+
+/* ============================================
+   Navigation & Header
+   ============================================ */
+header.header {
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(21, 168, 168, 0.3);
+}
+
+nav.sidebar {
+  backdrop-filter: blur(12px);
+}
+
+/* Sidebar links */
+.sidebar-content a {
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.sidebar-content a:hover {
+  background: rgba(21, 168, 168, 0.1);
+}
+
+.sidebar-content a[aria-current="page"] {
+  background: rgba(21, 168, 168, 0.15);
+  color: var(--vanna-teal);
+  border-radius: 8px;
+}
+
+/* ============================================
+   Search
+   ============================================ */
+[data-pagefind-ui] input,
+.search-input,
+button[aria-label="Search"] {
+  border-radius: 9999px !important;
+  transition: all 0.2s ease;
+}
+
+[data-pagefind-ui] input:focus,
+.search-input:focus {
+  border-color: var(--vanna-teal) !important;
+  box-shadow: 0 0 0 3px rgba(21, 168, 168, 0.15) !important;
+}
+
+/* ============================================
+   Buttons
+   ============================================ */
+.sl-link-button {
+  border-radius: 9999px;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.sl-link-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-subtle);
+}
+
+/* Primary button style */
+.sl-link-button[data-variant="primary"] {
+  background: var(--vanna-teal);
+  border-color: var(--vanna-teal);
+  box-shadow: var(--shadow-subtle);
+}
+
+.sl-link-button[data-variant="primary"]:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* Secondary/minimal button */
+.sl-link-button[data-variant="secondary"],
+.sl-link-button[data-variant="minimal"] {
+  background: rgba(231, 225, 207, 0.6);
+  border-color: rgba(21, 168, 168, 0.3);
+  color: var(--vanna-navy);
+}
+
+:root[data-theme="dark"] .sl-link-button[data-variant="secondary"],
+:root[data-theme="dark"] .sl-link-button[data-variant="minimal"] {
+  background: rgba(2, 61, 96, 0.4);
+  color: var(--vanna-cream);
+}
+
+/* ============================================
+   Cards & Content boxes
+   ============================================ */
+.card {
+  border-radius: 16px;
+  border: 1px solid rgba(21, 168, 168, 0.2);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-card);
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  border-color: var(--vanna-teal);
+  box-shadow: var(--shadow-card-hover);
+}
+
+:root[data-theme="dark"] .card {
+  background: rgba(2, 61, 96, 0.4);
+  border-color: rgba(21, 168, 168, 0.3);
+}
+
+/* Starlight card grid */
+.sl-link-card {
+  border-radius: 16px !important;
+  border: 1px solid rgba(21, 168, 168, 0.2) !important;
+  background: rgba(255, 255, 255, 0.6) !important;
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-card);
+  transition: all 0.3s ease !important;
+}
+
+.sl-link-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--vanna-teal) !important;
+  box-shadow: var(--shadow-card-hover);
+}
+
+:root[data-theme="dark"] .sl-link-card {
+  background: rgba(2, 61, 96, 0.4) !important;
+}
+
+/* ============================================
+   Aside/Callout boxes
+   ============================================ */
+.starlight-aside {
+  border-radius: 12px;
+  border-left-width: 4px;
+  backdrop-filter: blur(4px);
+}
+
+.starlight-aside--note {
+  border-left-color: var(--vanna-teal);
+  background: rgba(21, 168, 168, 0.08);
+}
+
+.starlight-aside--tip {
+  border-left-color: var(--vanna-teal);
+  background: rgba(21, 168, 168, 0.08);
+}
+
+.starlight-aside--caution {
+  border-left-color: var(--vanna-orange);
+  background: rgba(254, 93, 38, 0.08);
+}
+
+.starlight-aside--danger {
+  border-left-color: var(--vanna-magenta);
+  background: rgba(191, 19, 99, 0.08);
+}
+
+/* ============================================
+   Code Blocks
+   ============================================ */
+pre {
+  border-radius: 12px;
+  border: 1px solid var(--sl-color-hairline);
+  box-shadow: var(--shadow-card);
+}
+
+:root[data-theme="dark"] pre {
+  background: rgba(2, 61, 96, 0.8) !important;
+}
+
+code {
+  font-family: var(--sl-font-mono);
+  border-radius: 6px;
+}
+
+/* Inline code */
+:not(pre) > code {
+  padding: 0.2em 0.4em;
+  background: var(--sl-color-bg-inline-code);
+  border-radius: 6px;
+}
+
+/* ============================================
+   Hero Section (landing page)
+   ============================================ */
+.hero {
+  background: transparent;
+}
+
+/* Hero action buttons */
+.hero .action a[data-variant="primary"],
+.action a.primary,
+a.sl-link-button.primary,
+.sl-link-button[data-variant="primary"] {
+  background: var(--vanna-teal) !important;
+  border-color: var(--vanna-teal) !important;
+  box-shadow: var(--shadow-subtle);
+}
+
+.hero .action a[data-variant="primary"]:hover,
+.action a.primary:hover,
+a.sl-link-button.primary:hover,
+.sl-link-button[data-variant="primary"]:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* ============================================
+   Table of Contents
+   ============================================ */
+.right-sidebar-panel a {
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.right-sidebar-panel a:hover {
+  color: var(--vanna-teal);
+}
+
+.right-sidebar-panel a[aria-current="true"] {
+  color: var(--vanna-teal);
+  border-left-color: var(--vanna-teal);
+}
+
+/* ============================================
+   Footer
+   ============================================ */
+footer {
+  border-top: 1px solid rgba(21, 168, 168, 0.2);
+}
+
+/* ============================================
+   Tables
+   ============================================ */
+table {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--sl-color-hairline);
+}
+
+th {
+  background: rgba(21, 168, 168, 0.1);
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 600;
+}
+
+tr:hover td {
+  background: rgba(21, 168, 168, 0.05);
+}
+
+/* ============================================
+   Scrollbar styling
+   ============================================ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(21, 168, 168, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(21, 168, 168, 0.5);
+}
+
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(21, 168, 168, 0.3);
+}
+
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(21, 168, 168, 0.5);
+}
+
+/* ============================================
+   Selection highlighting
+   ============================================ */
+::selection {
+  background: rgba(21, 168, 168, 0.3);
+  color: var(--vanna-navy);
+}
+
+:root[data-theme="dark"] ::selection {
+  background: rgba(21, 168, 168, 0.4);
+  color: var(--vanna-cream);
+}
+
+/* ============================================
+   Focus states
+   ============================================ */
+:focus-visible {
+  outline: 2px solid var(--vanna-teal);
+  outline-offset: 2px;
+}
+
+/* ============================================
+   Decorative gradient line (can be used on sections)
+   ============================================ */
+.gradient-line {
+  height: 2px;
+  background: linear-gradient(to right, transparent, var(--vanna-teal), transparent);
 }

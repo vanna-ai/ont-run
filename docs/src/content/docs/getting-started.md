@@ -1,19 +1,19 @@
 ---
 title: Quick Start
-description: Get up and running with ont in 5 minutes
+description: Get up and running with ont-run in 5 minutes
 ---
 
 ## Installation
 
 ```bash
 # Using bun (recommended)
-bun add ont
+bun add ont-run
 
 # Using npm
-npm install ont
+npm install ont-run
 
 # Using pnpm
-pnpm add ont
+pnpm add ont-run
 ```
 
 ## Create your ontology
@@ -21,7 +21,7 @@ pnpm add ont
 Create an `ontology.config.ts` file in your project root:
 
 ```typescript
-import { defineOntology, z } from 'ont';
+import { defineOntology, z } from 'ont-run';
 
 export default defineOntology({
   name: 'my-api',
@@ -81,7 +81,7 @@ export default defineOntology({
 Create `resolvers/healthCheck.ts`:
 
 ```typescript
-import type { ResolverContext } from 'ont';
+import type { ResolverContext } from 'ont-run';
 
 export default function healthCheck(ctx: ResolverContext) {
   ctx.logger.info('Health check called');
@@ -92,7 +92,7 @@ export default function healthCheck(ctx: ResolverContext) {
 Create `resolvers/getUser.ts`:
 
 ```typescript
-import type { ResolverContext } from 'ont';
+import type { ResolverContext } from 'ont-run';
 
 interface GetUserArgs {
   userId: string;
@@ -113,14 +113,20 @@ export default async function getUser(
 }
 ```
 
+## Create server entry point
+
+Create a `server.ts` file:
+
+```typescript
+import { startOnt } from 'ont-run';
+
+await startOnt();
+```
+
 ## Start the server
 
 ```bash
-# Start in development mode
-ont start --env dev
-
-# Or with bun directly
-bun run ont start --env dev
+bun run server.ts
 ```
 
 This starts:
@@ -134,7 +140,7 @@ Both servers are built on [Hono](https://hono.dev/), a lightweight web framework
 When you modify your ontology (add functions, change access), you need to approve the changes:
 
 ```bash
-ont review
+npx ont-run review
 ```
 
 This opens an interactive review UI where you can see exactly what changed and approve or reject.

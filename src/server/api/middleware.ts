@@ -1,5 +1,6 @@
 import { createMiddleware } from "hono/factory";
 import type { Context, Next } from "hono";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { OntologyConfig, ResolverContext, EnvironmentConfig } from "../../config/types.js";
 import { createLogger } from "../resolver.js";
 
@@ -110,7 +111,7 @@ export function errorHandler() {
           error: "Request failed",
           message,
         },
-        status
+        status as ContentfulStatusCode
       );
     }
   });

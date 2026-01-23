@@ -3,7 +3,7 @@ title: defineOntology
 description: API reference for the defineOntology function
 ---
 
-`defineOntology` is the main entry point for creating an ont configuration.
+`defineOntology` is the main entry point for creating an ont-run configuration.
 
 ## Signature
 
@@ -159,7 +159,7 @@ Path to the resolver file, relative to the config file.
 ## Example
 
 ```typescript
-import { defineOntology, fieldFrom, z } from 'ont';
+import { defineOntology, fieldFrom, z } from 'ont-run';
 
 export default defineOntology({
   name: 'my-api',

@@ -1,4 +1,5 @@
-import type { Hono } from "hono";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyHono = { fetch: (request: Request, ...args: any[]) => Response | Promise<Response> };
 
 /**
  * Check if we're running in Bun
@@ -37,16 +38,18 @@ export interface ServerHandle {
  * Start an HTTP server using the appropriate runtime
  */
 export async function serve(
-  app: Hono,
+  app: AnyHono,
   port: number
 ): Promise<ServerHandle> {
   if (isBun()) {
     const server = Bun.serve({
       port,
       fetch: app.fetch,
+      // Disable idle timeout for SSE/streaming connections
+      idleTimeout: 0,
     });
     return {
-      port: server.port,
+      port: server.port ?? port,
       stop: () => server.stop(),
     };
   }

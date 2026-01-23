@@ -4,12 +4,41 @@ import starlight from "@astrojs/starlight";
 export default defineConfig({
   integrations: [
     starlight({
-      title: "ont",
+      title: "ont-run",
       description:
         "Ontology-first backends with human-approved AI access & edits",
-      social: {
-        github: "https://github.com/anthropics/ont",
+      logo: {
+        src: "./public/logo.svg",
+        replacesTitle: false,
       },
+      favicon: "/favicon.svg",
+      social: {
+        github: "https://github.com/vanna-ai/ont-run",
+      },
+      head: [
+        {
+          tag: "link",
+          attrs: {
+            rel: "preconnect",
+            href: "https://fonts.googleapis.com",
+          },
+        },
+        {
+          tag: "link",
+          attrs: {
+            rel: "preconnect",
+            href: "https://fonts.gstatic.com",
+            crossorigin: true,
+          },
+        },
+        {
+          tag: "link",
+          attrs: {
+            rel: "stylesheet",
+            href: "https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600&family=Space+Mono&display=swap",
+          },
+        },
+      ],
       sidebar: [
         {
           label: "Getting Started",

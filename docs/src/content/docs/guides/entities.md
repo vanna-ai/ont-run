@@ -72,7 +72,7 @@ Use an empty array `[]` for utility functions that don't relate to any specific 
 
 ## Validation
 
-ont validates that all entity references point to defined entities:
+ont-run validates that all entity references point to defined entities:
 
 ```typescript
 // This will throw an error!
