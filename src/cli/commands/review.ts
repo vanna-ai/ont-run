@@ -48,7 +48,7 @@ export const reviewCommand = defineCommand({
 
       // Load config
       consola.info("Loading ontology config...");
-      const { config, configDir } = await loadConfig();
+      const { config, configDir, configPath } = await loadConfig();
 
       // Compute current ontology snapshot
       const { ontology: newOntology, hash: newHash } = computeOntologyHash(config);
@@ -107,6 +107,7 @@ export const reviewCommand = defineCommand({
         config,
         diff: diff.hasChanges ? diff : null,
         configDir,
+        configPath,
       });
 
       if (diff.hasChanges) {

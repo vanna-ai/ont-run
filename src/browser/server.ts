@@ -1,4 +1,6 @@
 import { Hono } from "hono";
+import { readFileSync } from "fs";
+import { basename } from "path";
 import open from "open";
 import type { OntologyConfig } from "../config/types.js";
 import type { OntologyDiff } from "../lockfile/types.js";
@@ -12,6 +14,8 @@ export interface BrowserServerOptions {
   diff?: OntologyDiff | null;
   /** Directory to write the lockfile to on approval */
   configDir?: string;
+  /** Path to the ontology.config.ts file */
+  configPath?: string;
   port?: number;
   openBrowser?: boolean;
 }
@@ -22,7 +26,7 @@ export interface BrowserServerResult {
 }
 
 export async function startBrowserServer(options: BrowserServerOptions): Promise<BrowserServerResult> {
-  const { config, diff = null, configDir, port: preferredPort, openBrowser = true } = options;
+  const { config, diff = null, configDir, configPath, port: preferredPort, openBrowser = true } = options;
 
   // Transform config to graph data and enhance with diff info
   const baseGraphData = transformToGraphData(config);
@@ -88,6 +92,26 @@ export async function startBrowserServer(options: BrowserServerOptions): Promise
         resolve({ approved: false });
       }, 500);
       return c.json({ success: true });
+    });
+
+    // API: Get raw TypeScript source
+    app.get("/api/source", (c) => {
+      if (!configPath) {
+        return c.json({ error: "Config path not available" }, 400);
+      }
+      try {
+        const source = readFileSync(configPath, "utf-8");
+        const filename = basename(configPath);
+        return c.json({ source, filename, path: configPath });
+      } catch (error) {
+        return c.json(
+          {
+            error: "Failed to read config file",
+            message: error instanceof Error ? error.message : "Unknown error",
+          },
+          500
+        );
+      }
     });
 
     // Serve UI
@@ -704,6 +728,89 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
     .table-item-change .new {
       color: var(--change-added);
     }
+
+    /* Source View */
+    .source-view {
+      display: none;
+      grid-column: 2 / 4;
+      padding: 24px;
+      overflow-y: auto;
+      background: linear-gradient(to bottom, rgba(255, 255, 255, 0.5), rgba(231, 225, 207, 0.3));
+    }
+
+    .source-view.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .source-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: rgba(2, 61, 96, 0.95);
+      border-radius: 12px 12px 0 0;
+      color: white;
+    }
+
+    .source-filename {
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .copy-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      color: white;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .copy-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .copy-btn.copied {
+      background: rgba(21, 168, 168, 0.3);
+      border-color: var(--vanna-teal);
+    }
+
+    .source-code {
+      flex: 1;
+      margin: 0;
+      padding: 20px;
+      background: #1e1e1e;
+      border-radius: 0 0 12px 12px;
+      overflow: auto;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #d4d4d4;
+      tab-size: 2;
+    }
+
+    .source-code code {
+      display: block;
+      white-space: pre;
+    }
+
+    /* Syntax highlighting classes */
+    .source-code .keyword { color: #569cd6; }
+    .source-code .string { color: #ce9178; }
+    .source-code .number { color: #b5cea8; }
+    .source-code .comment { color: #6a9955; }
+    .source-code .function { color: #dcdcaa; }
+    .source-code .type { color: #4ec9b0; }
+    .source-code .property { color: #9cdcfe; }
+    .source-code .punctuation { color: #d4d4d4; }
 
     /* No Changes State */
     .no-changes {
@@ -1433,6 +1540,7 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
       <div class="view-tabs">
         <button class="view-tab active" data-view="graph">Graph</button>
         <button class="view-tab" data-view="table">Table</button>
+        <button class="view-tab" data-view="source">Source</button>
       </div>
 
       <div class="filter-buttons" id="graphFilters">
@@ -1552,6 +1660,20 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
     <!-- Table View -->
     <div class="table-view" id="tableView">
       <div id="tableContent"></div>
+    </div>
+
+    <!-- Source View -->
+    <div class="source-view" id="sourceView">
+      <div class="source-header">
+        <span class="source-filename" id="sourceFilename">ontology.config.ts</span>
+        <button class="copy-btn" id="copySourceBtn" title="Copy to clipboard">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+          Copy
+        </button>
+      </div>
+      <pre class="source-code" id="sourceCode"><code>Loading...</code></pre>
     </div>
   </div>
 
@@ -2429,6 +2551,7 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
       const graphContainer = document.querySelector('.graph-container');
       const detailPanel = document.getElementById('detailPanel');
       const tableView = document.getElementById('tableView');
+      const sourceView = document.getElementById('sourceView');
       const graphFilters = document.getElementById('graphFilters');
       const layoutSelector = document.querySelector('.layout-selector');
 
@@ -2436,15 +2559,25 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
         graphContainer.style.display = 'block';
         detailPanel.style.display = 'block';
         tableView.classList.remove('active');
+        sourceView.classList.remove('active');
         if (graphFilters) graphFilters.style.display = 'flex';
         if (layoutSelector) layoutSelector.style.display = 'flex';
-      } else {
+      } else if (view === 'table') {
         graphContainer.style.display = 'none';
         detailPanel.style.display = 'none';
         tableView.classList.add('active');
+        sourceView.classList.remove('active');
         if (graphFilters) graphFilters.style.display = 'none';
         if (layoutSelector) layoutSelector.style.display = 'none';
         renderTableView();
+      } else if (view === 'source') {
+        graphContainer.style.display = 'none';
+        detailPanel.style.display = 'none';
+        tableView.classList.remove('active');
+        sourceView.classList.add('active');
+        if (graphFilters) graphFilters.style.display = 'none';
+        if (layoutSelector) layoutSelector.style.display = 'none';
+        loadSourceView();
       }
     }
 
@@ -2485,6 +2618,74 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
         });
       });
     }
+
+    // Source view
+    let sourceLoaded = false;
+    let sourceContent = '';
+
+    async function loadSourceView() {
+      if (sourceLoaded) return;
+
+      const codeEl = document.getElementById('sourceCode').querySelector('code');
+      const filenameEl = document.getElementById('sourceFilename');
+
+      try {
+        const res = await fetch('/api/source');
+        if (!res.ok) throw new Error('Failed to load source');
+        const data = await res.json();
+
+        sourceContent = data.source;
+        filenameEl.textContent = data.filename;
+        codeEl.innerHTML = highlightTypeScript(data.source);
+        sourceLoaded = true;
+      } catch (err) {
+        codeEl.textContent = 'Error loading source: ' + err.message;
+      }
+    }
+
+    function highlightTypeScript(code) {
+      // Escape HTML first
+      code = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      // Comments (single and multi-line)
+      code = code.replace(/(\/\/.*$)/gm, '<span class="comment">$1</span>');
+      code = code.replace(/(\/\\*[\\s\\S]*?\\*\/)/g, '<span class="comment">$1</span>');
+
+      // Strings (double, single, and template)
+      code = code.replace(/("(?:[^"\\\\]|\\\\.)*")/g, '<span class="string">$1</span>');
+      code = code.replace(/('(?:[^'\\\\]|\\\\.)*')/g, '<span class="string">$1</span>');
+      code = code.replace(/(\`(?:[^\`\\\\]|\\\\.)*\`)/g, '<span class="string">$1</span>');
+
+      // Keywords
+      const keywords = ['import', 'export', 'from', 'const', 'let', 'var', 'function', 'return', 'if', 'else', 'for', 'while', 'class', 'extends', 'new', 'this', 'true', 'false', 'null', 'undefined', 'typeof', 'instanceof', 'async', 'await', 'default', 'as', 'type', 'interface'];
+      keywords.forEach(kw => {
+        code = code.replace(new RegExp('\\\\b(' + kw + ')\\\\b', 'g'), '<span class="keyword">$1</span>');
+      });
+
+      // Numbers
+      code = code.replace(/\\b(\\d+\\.?\\d*)\\b/g, '<span class="number">$1</span>');
+
+      // Function calls
+      code = code.replace(/\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(/g, '<span class="function">$1</span>(');
+
+      return code;
+    }
+
+    // Copy source button
+    document.getElementById('copySourceBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('copySourceBtn');
+      try {
+        await navigator.clipboard.writeText(sourceContent);
+        btn.classList.add('copied');
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy';
+        }, 2000);
+      } catch (err) {
+        console.error('Failed to copy:', err);
+      }
+    });
 
     function renderTableSection(title, items, type) {
       const changedCount = items.filter(n => n.changeStatus !== 'unchanged').length;

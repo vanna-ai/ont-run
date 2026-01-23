@@ -1,6 +1,6 @@
 {
   "name": "ont-run",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Ontology-enforced API framework for AI coding agents",
   "type": "module",
   "bin": {
