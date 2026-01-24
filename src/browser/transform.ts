@@ -1,8 +1,17 @@
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import type { OntologyConfig } from "../config/types.js";
 import type { OntologyDiff, FunctionChange } from "../lockfile/types.js";
 import { getFieldFromMetadata, getUserContextFields } from "../config/categorical.js";
+import {
+  isZodObject,
+  isZodOptional,
+  isZodNullable,
+  isZodArray,
+  isZodDefault,
+  getObjectShape,
+  getInnerSchema,
+  getArrayElement,
+} from "../config/zod-utils.js";
 
 export type NodeType = "entity" | "function" | "accessGroup";
 export type EdgeType = "operates-on" | "requires-access" | "depends-on";
@@ -80,30 +89,44 @@ function extractFieldReferences(
     });
   }
 
-  if (schema instanceof z.ZodObject) {
-    const shape = schema.shape;
-    for (const [key, value] of Object.entries(shape)) {
-      const fieldPath = path ? `${path}.${key}` : key;
-      results.push(
-        ...extractFieldReferences(value as z.ZodType<unknown>, fieldPath)
-      );
+  if (isZodObject(schema)) {
+    const shape = getObjectShape(schema);
+    if (shape) {
+      for (const [key, value] of Object.entries(shape)) {
+        const fieldPath = path ? `${path}.${key}` : key;
+        results.push(
+          ...extractFieldReferences(value as z.ZodType<unknown>, fieldPath)
+        );
+      }
     }
   }
 
-  if (schema instanceof z.ZodOptional) {
-    results.push(...extractFieldReferences(schema.unwrap(), path));
+  if (isZodOptional(schema)) {
+    const inner = getInnerSchema(schema);
+    if (inner) {
+      results.push(...extractFieldReferences(inner as z.ZodType<unknown>, path));
+    }
   }
 
-  if (schema instanceof z.ZodNullable) {
-    results.push(...extractFieldReferences(schema.unwrap(), path));
+  if (isZodNullable(schema)) {
+    const inner = getInnerSchema(schema);
+    if (inner) {
+      results.push(...extractFieldReferences(inner as z.ZodType<unknown>, path));
+    }
   }
 
-  if (schema instanceof z.ZodArray) {
-    results.push(...extractFieldReferences(schema.element, `${path}[]`));
+  if (isZodArray(schema)) {
+    const element = getArrayElement(schema);
+    if (element) {
+      results.push(...extractFieldReferences(element as z.ZodType<unknown>, `${path}[]`));
+    }
   }
 
-  if (schema instanceof z.ZodDefault) {
-    results.push(...extractFieldReferences(schema._def.innerType, path));
+  if (isZodDefault(schema)) {
+    const inner = getInnerSchema(schema);
+    if (inner) {
+      results.push(...extractFieldReferences(inner as z.ZodType<unknown>, path));
+    }
   }
 
   return results;
@@ -114,7 +137,7 @@ function extractFieldReferences(
  */
 function safeZodToJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> | undefined {
   try {
-    const result = zodToJsonSchema(schema, { $refStrategy: "none" }) as Record<string, unknown>;
+    const result = z.toJSONSchema(schema, { reused: "inline", unrepresentable: "any" }) as Record<string, unknown>;
     delete result.$schema;
     return result;
   } catch {

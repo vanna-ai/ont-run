@@ -56,7 +56,9 @@ import type {
 export function defineOntology<
   TGroups extends string,
   TEntities extends string,
-  TFunctions extends Record<string, FunctionDefinition<TGroups, TEntities>>,
+  // Use `any` for input/output schema types to avoid contravariance issues with resolver functions.
+  // Without this, ResolverFunction<unknown, unknown> won't accept more specific resolver types.
+  TFunctions extends Record<string, FunctionDefinition<TGroups, TEntities, any, any>>,
 >(config: {
   name: string;
   environments: Record<string, EnvironmentConfig>;

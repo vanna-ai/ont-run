@@ -1,6 +1,6 @@
 {
   "name": "ont-run",
-  "version": "0.0.4",
+  "version": "0.0.6",
   "description": "Ontology-enforced API framework for AI coding agents",
   "type": "module",
   "bin": {
@@ -35,8 +35,7 @@
     "consola": "^3.2.0",
     "hono": "^4.6.0",
     "open": "^10.0.0",
-    "zod": "^3.24.0",
-    "zod-to-json-schema": "^3.23.0"
+    "zod": "4"
   },
   "devDependencies": {
     "@types/bun": "latest",

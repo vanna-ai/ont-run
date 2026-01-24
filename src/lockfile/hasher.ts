@@ -1,8 +1,17 @@
 import { createHash } from "crypto";
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import type { OntologyConfig } from "../config/types.js";
 import { getFieldFromMetadata, getUserContextFields } from "../config/categorical.js";
+import {
+  isZodObject,
+  isZodOptional,
+  isZodNullable,
+  isZodArray,
+  isZodDefault,
+  getObjectShape,
+  getInnerSchema,
+  getArrayElement,
+} from "../config/zod-utils.js";
 import type {
   OntologySnapshot,
   FunctionShape,
@@ -28,34 +37,48 @@ function extractFieldReferences(
   }
 
   // Handle ZodObject - recurse into properties
-  if (schema instanceof z.ZodObject) {
-    const shape = schema.shape;
-    for (const [key, value] of Object.entries(shape)) {
-      const fieldPath = path ? `${path}.${key}` : key;
-      results.push(
-        ...extractFieldReferences(value as z.ZodType<unknown>, fieldPath)
-      );
+  if (isZodObject(schema)) {
+    const shape = getObjectShape(schema);
+    if (shape) {
+      for (const [key, value] of Object.entries(shape)) {
+        const fieldPath = path ? `${path}.${key}` : key;
+        results.push(
+          ...extractFieldReferences(value as z.ZodType<unknown>, fieldPath)
+        );
+      }
     }
   }
 
   // Handle ZodOptional - unwrap
-  if (schema instanceof z.ZodOptional) {
-    results.push(...extractFieldReferences(schema.unwrap(), path));
+  if (isZodOptional(schema)) {
+    const inner = getInnerSchema(schema);
+    if (inner) {
+      results.push(...extractFieldReferences(inner as z.ZodType<unknown>, path));
+    }
   }
 
   // Handle ZodNullable - unwrap
-  if (schema instanceof z.ZodNullable) {
-    results.push(...extractFieldReferences(schema.unwrap(), path));
+  if (isZodNullable(schema)) {
+    const inner = getInnerSchema(schema);
+    if (inner) {
+      results.push(...extractFieldReferences(inner as z.ZodType<unknown>, path));
+    }
   }
 
   // Handle ZodArray - recurse into element
-  if (schema instanceof z.ZodArray) {
-    results.push(...extractFieldReferences(schema.element, `${path}[]`));
+  if (isZodArray(schema)) {
+    const element = getArrayElement(schema);
+    if (element) {
+      results.push(...extractFieldReferences(element as z.ZodType<unknown>, `${path}[]`));
+    }
   }
 
   // Handle ZodDefault - unwrap
-  if (schema instanceof z.ZodDefault) {
-    results.push(...extractFieldReferences(schema._def.innerType, path));
+  if (isZodDefault(schema)) {
+    const inner = getInnerSchema(schema);
+    if (inner) {
+      results.push(...extractFieldReferences(inner as z.ZodType<unknown>, path));
+    }
   }
 
   return results;
@@ -85,14 +108,14 @@ export function extractOntology(config: OntologyConfig): OntologySnapshot {
     // This ensures we're comparing the shape, not the Zod instance
     let inputsSchema: Record<string, unknown>;
     try {
-      inputsSchema = zodToJsonSchema(fn.inputs, {
-        // Remove $schema to make hashing more stable
-        $refStrategy: "none",
+      inputsSchema = z.toJSONSchema(fn.inputs, {
+        reused: "inline",
+        unrepresentable: "any",
       }) as Record<string, unknown>;
       // Remove $schema key if present
       delete inputsSchema.$schema;
     } catch {
-      // If zodToJsonSchema fails, use a placeholder
+      // If z.toJSONSchema fails, use a placeholder
       inputsSchema = { type: "unknown" };
     }
 
@@ -100,8 +123,9 @@ export function extractOntology(config: OntologyConfig): OntologySnapshot {
     let outputsSchema: Record<string, unknown> | undefined;
     if (fn.outputs) {
       try {
-        outputsSchema = zodToJsonSchema(fn.outputs, {
-          $refStrategy: "none",
+        outputsSchema = z.toJSONSchema(fn.outputs, {
+          reused: "inline",
+          unrepresentable: "any",
         }) as Record<string, unknown>;
         delete outputsSchema.$schema;
       } catch {

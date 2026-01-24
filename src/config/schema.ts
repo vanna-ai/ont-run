@@ -1,5 +1,16 @@
 import { z } from "zod";
 import { getFieldFromMetadata, getUserContextFields } from "./categorical.js";
+import {
+  isZodSchema,
+  isZodObject,
+  isZodOptional,
+  isZodNullable,
+  isZodArray,
+  isZodDefault,
+  getObjectShape,
+  getInnerSchema,
+  getArrayElement,
+} from "./zod-utils.js";
 import type { OntologyConfig } from "./types.js";
 
 /**
@@ -26,16 +37,10 @@ export const EntityDefinitionSchema = z.object({
 });
 
 /**
- * Check if a value is a Zod schema (duck typing to work across bundle boundaries)
+ * Check if a value is a function
  */
-function isZodSchema(val: unknown): boolean {
-  return (
-    val !== null &&
-    typeof val === "object" &&
-    "_def" in val &&
-    "safeParse" in val &&
-    typeof (val as { safeParse: unknown }).safeParse === "function"
-  );
+function isFunction(val: unknown): val is (...args: unknown[]) => unknown {
+  return typeof val === "function";
 }
 
 /**
@@ -53,16 +58,10 @@ export const FunctionDefinitionSchema = z.object({
       message: "outputs must be a Zod schema",
     })
     .optional(),
-  resolver: z.function(),
+  resolver: z.custom<(...args: unknown[]) => unknown>(isFunction, {
+    message: "resolver must be a function",
+  }),
 });
-
-/**
- * Schema for auth function
- */
-export const AuthFunctionSchema = z
-  .function()
-  .args(z.custom<Request>())
-  .returns(z.union([z.array(z.string()), z.promise(z.array(z.string()))]));
 
 /**
  * Schema for the full ontology configuration
@@ -70,7 +69,9 @@ export const AuthFunctionSchema = z
 export const OntologyConfigSchema = z.object({
   name: z.string().min(1),
   environments: z.record(z.string(), EnvironmentConfigSchema),
-  auth: z.function(),
+  auth: z.custom<(req: Request) => unknown>(isFunction, {
+    message: "auth must be a function",
+  }),
   accessGroups: z.record(z.string(), AccessGroupConfigSchema),
   entities: z.record(z.string(), EntityDefinitionSchema).optional(),
   functions: z.record(z.string(), FunctionDefinitionSchema),
@@ -141,34 +142,48 @@ function extractFieldFromRefs(
   }
 
   // Handle ZodObject - recurse into properties
-  if (schema instanceof z.ZodObject) {
-    const shape = schema.shape;
-    for (const [key, value] of Object.entries(shape)) {
-      const fieldPath = path ? `${path}.${key}` : key;
-      results.push(
-        ...extractFieldFromRefs(value as z.ZodType<unknown>, fieldPath)
-      );
+  if (isZodObject(schema)) {
+    const shape = getObjectShape(schema);
+    if (shape) {
+      for (const [key, value] of Object.entries(shape)) {
+        const fieldPath = path ? `${path}.${key}` : key;
+        results.push(
+          ...extractFieldFromRefs(value as z.ZodType<unknown>, fieldPath)
+        );
+      }
     }
   }
 
   // Handle ZodOptional - unwrap
-  if (schema instanceof z.ZodOptional) {
-    results.push(...extractFieldFromRefs(schema.unwrap(), path));
+  if (isZodOptional(schema)) {
+    const inner = getInnerSchema(schema);
+    if (inner) {
+      results.push(...extractFieldFromRefs(inner as z.ZodType<unknown>, path));
+    }
   }
 
   // Handle ZodNullable - unwrap
-  if (schema instanceof z.ZodNullable) {
-    results.push(...extractFieldFromRefs(schema.unwrap(), path));
+  if (isZodNullable(schema)) {
+    const inner = getInnerSchema(schema);
+    if (inner) {
+      results.push(...extractFieldFromRefs(inner as z.ZodType<unknown>, path));
+    }
   }
 
   // Handle ZodArray - recurse into element
-  if (schema instanceof z.ZodArray) {
-    results.push(...extractFieldFromRefs(schema.element, `${path}[]`));
+  if (isZodArray(schema)) {
+    const element = getArrayElement(schema);
+    if (element) {
+      results.push(...extractFieldFromRefs(element as z.ZodType<unknown>, `${path}[]`));
+    }
   }
 
   // Handle ZodDefault - unwrap
-  if (schema instanceof z.ZodDefault) {
-    results.push(...extractFieldFromRefs(schema._def.innerType, path));
+  if (isZodDefault(schema)) {
+    const inner = getInnerSchema(schema);
+    if (inner) {
+      results.push(...extractFieldFromRefs(inner as z.ZodType<unknown>, path));
+    }
   }
 
   return results;

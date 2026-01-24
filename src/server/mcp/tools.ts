@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import type {
   OntologyConfig,
   FunctionDefinition,
@@ -8,6 +7,16 @@ import type {
   AuthResult,
 } from "../../config/types.js";
 import { getFieldFromMetadata, getUserContextFields, hasUserContextMetadata } from "../../config/categorical.js";
+import {
+  isZodObject,
+  isZodOptional,
+  isZodNullable,
+  isZodArray,
+  isZodDefault,
+  getObjectShape,
+  getInnerSchema,
+  getArrayElement,
+} from "../../config/zod-utils.js";
 import type { Logger } from "../resolver.js";
 
 /**
@@ -94,36 +103,48 @@ function extractFieldReferencesForMcp(
   }
 
   // Handle ZodObject - recurse into properties
-  if (schema instanceof z.ZodObject) {
-    const shape = schema.shape;
-    for (const [key, value] of Object.entries(shape)) {
-      const fieldPath = path ? `${path}.${key}` : key;
-      results.push(
-        ...extractFieldReferencesForMcp(value as z.ZodType<unknown>, fieldPath)
-      );
+  if (isZodObject(schema)) {
+    const shape = getObjectShape(schema);
+    if (shape) {
+      for (const [key, value] of Object.entries(shape)) {
+        const fieldPath = path ? `${path}.${key}` : key;
+        results.push(
+          ...extractFieldReferencesForMcp(value as z.ZodType<unknown>, fieldPath)
+        );
+      }
     }
   }
 
   // Handle ZodOptional - unwrap
-  if (schema instanceof z.ZodOptional) {
-    results.push(...extractFieldReferencesForMcp(schema.unwrap(), path));
+  if (isZodOptional(schema)) {
+    const inner = getInnerSchema(schema);
+    if (inner) {
+      results.push(...extractFieldReferencesForMcp(inner as z.ZodType<unknown>, path));
+    }
   }
 
   // Handle ZodNullable - unwrap
-  if (schema instanceof z.ZodNullable) {
-    results.push(...extractFieldReferencesForMcp(schema.unwrap(), path));
+  if (isZodNullable(schema)) {
+    const inner = getInnerSchema(schema);
+    if (inner) {
+      results.push(...extractFieldReferencesForMcp(inner as z.ZodType<unknown>, path));
+    }
   }
 
   // Handle ZodArray - recurse into element
-  if (schema instanceof z.ZodArray) {
-    results.push(...extractFieldReferencesForMcp(schema.element, `${path}[]`));
+  if (isZodArray(schema)) {
+    const element = getArrayElement(schema);
+    if (element) {
+      results.push(...extractFieldReferencesForMcp(element as z.ZodType<unknown>, `${path}[]`));
+    }
   }
 
   // Handle ZodDefault - unwrap
-  if (schema instanceof z.ZodDefault) {
-    results.push(
-      ...extractFieldReferencesForMcp(schema._def.innerType, path)
-    );
+  if (isZodDefault(schema)) {
+    const inner = getInnerSchema(schema);
+    if (inner) {
+      results.push(...extractFieldReferencesForMcp(inner as z.ZodType<unknown>, path));
+    }
   }
 
   return results;
@@ -139,8 +160,9 @@ export function generateMcpTools(config: OntologyConfig): McpTool[] {
     // Convert Zod schema to JSON Schema for MCP
     let inputSchema: Record<string, unknown>;
     try {
-      inputSchema = zodToJsonSchema(fn.inputs, {
-        $refStrategy: "none",
+      inputSchema = z.toJSONSchema(fn.inputs, {
+        reused: "inline",
+        unrepresentable: "any",
       }) as Record<string, unknown>;
       // Remove $schema key if present
       delete inputSchema.$schema;
@@ -154,8 +176,9 @@ export function generateMcpTools(config: OntologyConfig): McpTool[] {
     let outputSchema: Record<string, unknown> | undefined;
     if (fn.outputs) {
       try {
-        outputSchema = zodToJsonSchema(fn.outputs, {
-          $refStrategy: "none",
+        outputSchema = z.toJSONSchema(fn.outputs, {
+          reused: "inline",
+          unrepresentable: "any",
         }) as Record<string, unknown>;
         delete outputSchema.$schema;
       } catch {

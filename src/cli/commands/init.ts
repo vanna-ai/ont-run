@@ -54,6 +54,11 @@ export const initCommand = defineCommand({
     const configTemplate = `import { defineOntology, userContext } from 'ont-run';
 import { z } from 'zod';
 
+// Import resolver functions - TypeScript enforces return types match outputs
+import healthCheck from './resolvers/healthCheck.js';
+import getUser from './resolvers/getUser.js';
+import deleteUser from './resolvers/deleteUser.js';
+
 export default defineOntology({
   name: 'my-api',
 
@@ -98,7 +103,7 @@ export default defineOntology({
       access: ['public', 'support', 'admin'],
       entities: [],
       inputs: z.object({}),
-      resolver: './resolvers/healthCheck.ts',
+      resolver: healthCheck,
     },
 
     // Example: Restricted function with row-level access
@@ -114,7 +119,7 @@ export default defineOntology({
           email: z.string(),
         })),
       }),
-      resolver: './resolvers/getUser.ts',
+      resolver: getUser,
     },
 
     // Example: Admin-only function
@@ -126,7 +131,7 @@ export default defineOntology({
         userId: z.string().uuid(),
         reason: z.string().optional(),
       }),
-      resolver: './resolvers/deleteUser.ts',
+      resolver: deleteUser,
     },
   },
 });
@@ -138,7 +143,7 @@ export default defineOntology({
     // Write example resolvers
     const healthCheckResolver = `import type { ResolverContext } from 'ont-run';
 
-export default async function healthCheck(ctx: ResolverContext, args: {}) {
+export default async function healthCheck(ctx: ResolverContext) {
   ctx.logger.info('Health check called');
 
   return {
@@ -237,7 +242,7 @@ await startOnt();
     packageJson.dependencies = {
       ...(packageJson.dependencies as Record<string, string> || {}),
       "ont-run": "latest",
-      zod: "^3.24.0",
+      zod: "^4.0.0",
     };
 
     writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
