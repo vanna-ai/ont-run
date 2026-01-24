@@ -4,6 +4,12 @@
 
 A web framework designed for the era of coding agents. You define the ontology—what operations exist and who can perform them. AI writes the implementation.
 
+
+
+https://github.com/user-attachments/assets/93fbf862-aca3-422d-8f0c-1fc1e4510d88
+
+
+
 ```typescript
 // ontology.config.ts
 import { defineOntology, z } from 'ont-run';
