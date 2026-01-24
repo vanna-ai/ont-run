@@ -2648,8 +2648,8 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
       code = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
       // Comments (single and multi-line)
-      code = code.replace(/(\/\/.*$)/gm, '<span class="comment">$1</span>');
-      code = code.replace(/(\/\\*[\\s\\S]*?\\*\/)/g, '<span class="comment">$1</span>');
+      code = code.replace(/(\\/\\/.*$)/gm, '<span class="comment">$1</span>');
+      code = code.replace(/(\\/\\*[\\s\\S]*?\\*\\/)/g, '<span class="comment">$1</span>');
 
       // Strings (double, single, and template)
       code = code.replace(/("(?:[^"\\\\]|\\\\.)*")/g, '<span class="string">$1</span>');

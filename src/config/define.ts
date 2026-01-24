@@ -1,3 +1,4 @@
+import { z } from "zod";
 import {
   OntologyConfigSchema,
   validateAccessGroups,
@@ -11,6 +12,7 @@ import type {
   EnvironmentConfig,
   EntityDefinition,
   AuthFunction,
+  ResolverFunction,
 } from "./types.js";
 
 /**
@@ -20,6 +22,7 @@ import type {
  * ```ts
  * import { defineOntology, fieldFrom } from 'ont-run';
  * import { z } from 'zod';
+ * import { getUser } from './resolvers/getUser.js';
  *
  * export default defineOntology({
  *   name: 'my-api',
@@ -44,7 +47,7 @@ import type {
  *       access: ['public', 'admin'],
  *       entities: ['User'],
  *       inputs: z.object({ id: z.string() }),
- *       resolver: './resolvers/getUser.ts',
+ *       resolver: getUser,  // Direct function reference for type safety
  *     },
  *   },
  * });
@@ -75,4 +78,49 @@ export function defineOntology<
   validateFieldFromReferences(parsed);
 
   return config as OntologyConfig<TGroups, TEntities, TFunctions>;
+}
+
+/**
+ * Define a function with full type inference for resolver type safety.
+ *
+ * This helper ensures that the resolver function's return type matches
+ * the outputs Zod schema at compile time.
+ *
+ * @example
+ * ```ts
+ * import { defineFunction, z } from 'ont-run';
+ * import type { ResolverContext } from 'ont-run';
+ *
+ * const getUser = defineFunction({
+ *   description: 'Get a user by ID',
+ *   access: ['public', 'admin'] as const,
+ *   entities: ['User'] as const,
+ *   inputs: z.object({ id: z.string() }),
+ *   outputs: z.object({ id: z.string(), name: z.string() }),
+ *   resolver: async (ctx, args) => {
+ *     // TypeScript knows args is { id: string }
+ *     // TypeScript enforces return type is { id: string, name: string }
+ *     return { id: args.id, name: 'Example User' };
+ *   },
+ * });
+ * ```
+ */
+export function defineFunction<
+  TGroups extends string,
+  TEntities extends string,
+  TInputs extends z.ZodType,
+  TOutputs extends z.ZodType,
+>(config: {
+  description: string;
+  access: readonly TGroups[];
+  entities: readonly TEntities[];
+  inputs: TInputs;
+  outputs?: TOutputs;
+  resolver: ResolverFunction<z.infer<TInputs>, z.infer<TOutputs>>;
+}): FunctionDefinition<TGroups, TEntities, TInputs, TOutputs> {
+  return {
+    ...config,
+    access: [...config.access],
+    entities: [...config.entities],
+  };
 }

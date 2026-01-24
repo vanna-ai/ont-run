@@ -29,13 +29,17 @@ Each entity has:
 Every function **must** specify which entities it relates to via the `entities` array:
 
 ```typescript
+import getUser from './resolvers/getUser.js';
+import addUserToOrganization from './resolvers/addUserToOrg.js';
+import healthCheck from './resolvers/healthCheck.js';
+
 functions: {
   getUser: {
     description: 'Get user by ID',
     access: ['admin'],
     entities: ['User'],  // Required!
     inputs: z.object({ id: z.string() }),
-    resolver: './resolvers/getUser.ts',
+    resolver: getUser,
   },
 
   addUserToOrganization: {
@@ -46,7 +50,7 @@ functions: {
       userId: z.string(),
       orgId: z.string(),
     }),
-    resolver: './resolvers/addUserToOrg.ts',
+    resolver: addUserToOrganization,
   },
 
   healthCheck: {
@@ -54,7 +58,7 @@ functions: {
     access: ['public'],
     entities: [],  // Explicitly no entities
     inputs: z.object({}),
-    resolver: './resolvers/healthCheck.ts',
+    resolver: healthCheck,
   },
 }
 ```

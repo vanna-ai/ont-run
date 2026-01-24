@@ -53,7 +53,7 @@ export const FunctionDefinitionSchema = z.object({
       message: "outputs must be a Zod schema",
     })
     .optional(),
-  resolver: z.string(),
+  resolver: z.function(),
 });
 
 /**

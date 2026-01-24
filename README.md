@@ -7,6 +7,8 @@ A web framework designed for the era of coding agents. You define the ontology�
 ```typescript
 // ontology.config.ts
 import { defineOntology, z } from 'ont-run';
+import getTicket from './resolvers/getTicket.js';
+import assignTicket from './resolvers/assignTicket.js';
 
 export default defineOntology({
   name: 'support-desk',
@@ -23,14 +25,14 @@ export default defineOntology({
       access: ['support', 'admin'],
       entities: ['Ticket'],
       inputs: z.object({ ticketId: z.string().uuid() }),
-      resolver: './resolvers/getTicket.ts',
+      resolver: getTicket,
     },
     assignTicket: {
       description: 'Assign ticket to an agent',
       access: ['admin'],  // If AI tries to add 'public' here, review is triggered
       entities: ['Ticket'],
       inputs: z.object({ ticketId: z.string().uuid(), assignee: z.string() }),
-      resolver: './resolvers/assignTicket.ts',
+      resolver: assignTicket,
     },
   },
   // ...
@@ -141,6 +143,7 @@ The resolver context provides:
 
 ```typescript
 import { defineOntology, z } from 'ont-run';
+import getUser from './resolvers/getUser.js';
 
 export default defineOntology({
   name: 'my-api',
@@ -179,7 +182,7 @@ export default defineOntology({
       access: ['user', 'admin'],
       entities: ['User'],
       inputs: z.object({ userId: z.string().uuid() }),
-      resolver: './resolvers/getUser.ts',
+      resolver: getUser,
     },
   },
 });
@@ -191,6 +194,7 @@ The framework handles **group-based access** (user → group → function) out o
 
 ```typescript
 import { defineOntology, userContext, z } from 'ont-run';
+import editPost from './resolvers/editPost.js';
 
 export default defineOntology({
   // Auth must return user identity for userContext to work
@@ -216,7 +220,7 @@ export default defineOntology({
           email: z.string(),
         })),
       }),
-      resolver: './resolvers/editPost.ts',
+      resolver: editPost,
     },
   },
 });

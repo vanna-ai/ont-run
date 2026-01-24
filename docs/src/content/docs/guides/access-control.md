@@ -185,6 +185,7 @@ Group-based access controls *which functions* users can call. For *row-level* ac
 
 ```typescript
 import { defineOntology, userContext, z } from 'ont-run';
+import editPost from './resolvers/editPost.js';
 
 defineOntology({
   // Auth must return user identity
@@ -210,7 +211,7 @@ defineOntology({
           email: z.string(),
         })),
       }),
-      resolver: './resolvers/editPost.ts',
+      resolver: editPost,
     },
   },
 });

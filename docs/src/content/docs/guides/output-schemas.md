@@ -10,6 +10,8 @@ Output schemas let you define and document the return type of your functions usi
 Add an `outputs` field to your function definition:
 
 ```typescript
+import getUser from './resolvers/getUser.js';
+
 functions: {
   getUser: {
     description: 'Get user by ID',
@@ -24,7 +26,7 @@ functions: {
       email: z.string().email(),
       createdAt: z.string().datetime(),
     }),
-    resolver: './resolvers/getUser.ts',
+    resolver: getUser,
   },
 }
 ```
@@ -155,6 +157,8 @@ This matches the `FieldOption` type that `fieldFrom()` consumers expect.
 The `outputs` field is optional — you can omit it if you don't want to document the return type:
 
 ```typescript
+import doSomething from './resolvers/doSomething.js';
+
 functions: {
   doSomething: {
     description: 'Do something',
@@ -162,7 +166,7 @@ functions: {
     entities: [],
     inputs: z.object({ ... }),
     // No outputs defined
-    resolver: './resolvers/doSomething.ts',
+    resolver: doSomething,
   },
 }
 ```

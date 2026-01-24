@@ -8,7 +8,7 @@ import type {
   AuthResult,
 } from "../../config/types.js";
 import { getFieldFromMetadata, getUserContextFields, hasUserContextMetadata } from "../../config/categorical.js";
-import { loadResolver, type Logger } from "../resolver.js";
+import type { Logger } from "../resolver.js";
 
 /**
  * Field reference info for MCP tools
@@ -198,7 +198,6 @@ export function filterToolsByAccess(
  */
 export function createToolExecutor(
   config: OntologyConfig,
-  configDir: string,
   env: string,
   envConfig: EnvironmentConfig,
   logger: Logger
@@ -253,8 +252,7 @@ export function createToolExecutor(
       accessGroups: authResult.groups,
     };
 
-    // Load and execute resolver
-    const resolver = await loadResolver(fn.resolver, configDir);
-    return resolver(resolverContext, parsed.data);
+    // Execute resolver
+    return fn.resolver(resolverContext, parsed.data);
   };
 }

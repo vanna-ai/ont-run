@@ -13,6 +13,8 @@ Instead of hardcoding options or using a separate "categorical" concept, **optio
 
 ```typescript
 import { defineOntology, fieldFrom, z } from 'ont-run';
+import getUserStatuses from './resolvers/options/userStatuses.js';
+import updateUser from './resolvers/updateUser.js';
 
 export default defineOntology({
   // ...
@@ -27,7 +29,7 @@ export default defineOntology({
         value: z.string(),
         label: z.string(),
       })),
-      resolver: './resolvers/options/userStatuses.ts',
+      resolver: getUserStatuses,
     },
 
     // This function uses those options
@@ -39,7 +41,7 @@ export default defineOntology({
         userId: z.string(),
         status: fieldFrom('getUserStatuses'),  // References the function
       }),
-      resolver: './resolvers/updateUser.ts',
+      resolver: updateUser,
     },
   },
 });
@@ -81,6 +83,9 @@ getUserStatuses: {
 Options are searched with a query. Good for large or dynamic lists.
 
 ```typescript
+import searchUsers from './resolvers/options/searchUsers.js';
+import assignTicket from './resolvers/assignTicket.js';
+
 searchUsers: {
   description: 'Search for users',
   access: ['admin'],
@@ -92,7 +97,7 @@ searchUsers: {
     value: z.string(),
     label: z.string(),
   })),
-  resolver: './resolvers/options/searchUsers.ts',
+  resolver: searchUsers,
 },
 
 assignTicket: {
@@ -101,6 +106,7 @@ assignTicket: {
     ticketId: z.string(),
     assignee: fieldFrom('searchUsers'),  // Will use autocomplete
   }),
+  resolver: assignTicket,
 },
 ```
 

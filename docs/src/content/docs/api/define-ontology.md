@@ -175,15 +175,29 @@ Zod schema for output documentation.
 
 ### `resolver`
 
-**Type:** `string`
+**Type:** `ResolverFunction`
 **Required:** Yes
 
-Path to the resolver file, relative to the config file.
+The resolver function that implements this operation. Import it directly and pass the function reference:
+
+```typescript
+import getUser from './resolvers/getUser.js';
+
+functions: {
+  getUser: {
+    // ...
+    resolver: getUser,
+  },
+}
+```
+
+This enables TypeScript to enforce that the resolver's return type matches the `outputs` schema.
 
 ## Example
 
 ```typescript
 import { defineOntology, fieldFrom, z } from 'ont-run';
+import getUser from './resolvers/getUser.js';
 
 export default defineOntology({
   name: 'my-api',
@@ -221,7 +235,7 @@ export default defineOntology({
         name: z.string(),
         email: z.string(),
       }),
-      resolver: './resolvers/getUser.ts',
+      resolver: getUser,
     },
   },
 });

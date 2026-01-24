@@ -53,6 +53,7 @@ The ontology is your operational DNA. AI writes code, but only humans change wha
 
 ```typescript
 import { defineOntology, fieldFrom, z } from 'ont-run';
+import getUser from './resolvers/getUser.js';
 
 export default defineOntology({
   name: 'my-api',
@@ -77,7 +78,7 @@ export default defineOntology({
         name: z.string(),
         email: z.string(),
       }),
-      resolver: './resolvers/getUser.ts',
+      resolver: getUser,
     },
   },
 });

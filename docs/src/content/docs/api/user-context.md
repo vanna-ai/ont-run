@@ -45,6 +45,7 @@ Mark fields that should be injected:
 
 ```typescript
 import { userContext, z } from 'ont-run';
+import editProfile from './resolvers/editProfile.js';
 
 functions: {
   editProfile: {
@@ -60,7 +61,7 @@ functions: {
         email: z.string(),
       })),
     }),
-    resolver: './resolvers/editProfile.ts',
+    resolver: editProfile,
   },
 }
 ```
@@ -138,6 +139,8 @@ The review UI shows a "User Context" badge on functions that use `userContext()`
 A common pattern is combining group access with row-level ownership:
 
 ```typescript
+import deletePost from './resolvers/deletePost.js';
+
 functions: {
   deletePost: {
     description: 'Delete a post',
@@ -147,7 +150,7 @@ functions: {
       postId: z.string(),
       currentUser: userContext(z.object({ id: z.string() })),
     }),
-    resolver: './resolvers/deletePost.ts',
+    resolver: deletePost,
   },
 }
 ```

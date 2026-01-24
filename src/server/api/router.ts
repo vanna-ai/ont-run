@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import type { OntologyConfig, FunctionDefinition } from "../../config/types.js";
-import { loadResolver } from "../resolver.js";
 import { getUserContextFields } from "../../config/categorical.js";
 import {
   createAccessControlMiddleware,
@@ -11,8 +10,7 @@ import {
  * Create API routes from function definitions
  */
 export function createApiRoutes(
-  config: OntologyConfig,
-  configDir: string
+  config: OntologyConfig
 ): Hono<{ Variables: OntologyVariables }> {
   const router = new Hono<{ Variables: OntologyVariables }>();
 
@@ -83,10 +81,9 @@ export function createApiRoutes(
           args = parsed.data;
         }
 
-        // Load and execute resolver
+        // Execute resolver
         try {
-          const resolver = await loadResolver(fn.resolver, configDir);
-          const result = await resolver(resolverContext, args);
+          const result = await fn.resolver(resolverContext, args);
           return c.json(result);
         } catch (error) {
           console.error(`Error in resolver ${name}:`, error);

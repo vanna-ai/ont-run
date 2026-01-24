@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import consola from "consola";
 import type { OntologyConfig } from "../../config/types.js";
 import {
   createAuthMiddleware,
@@ -9,13 +8,10 @@ import {
   type OntologyVariables,
 } from "./middleware.js";
 import { createApiRoutes, getFunctionsInfo } from "./router.js";
-import { findMissingResolvers } from "../resolver.js";
 
 export interface ApiServerOptions {
   /** The ontology configuration */
   config: OntologyConfig;
-  /** Directory containing the ontology.config.ts (for resolving resolver paths) */
-  configDir: string;
   /** Environment to use (e.g., 'dev', 'prod') */
   env: string;
   /** Enable CORS (default: true) */
@@ -26,7 +22,7 @@ export interface ApiServerOptions {
  * Create the Hono API app from an OntologyConfig
  */
 export function createApiApp(options: ApiServerOptions): Hono<{ Variables: OntologyVariables }> {
-  const { config, configDir, env, cors: enableCors = true } = options;
+  const { config, env, cors: enableCors = true } = options;
 
   // Get environment config
   const envConfig = config.environments[env];
@@ -34,15 +30,6 @@ export function createApiApp(options: ApiServerOptions): Hono<{ Variables: Ontol
     throw new Error(
       `Unknown environment "${env}". Available: ${Object.keys(config.environments).join(", ")}`
     );
-  }
-
-  // Check for missing resolvers
-  const missingResolvers = findMissingResolvers(config, configDir);
-  if (missingResolvers.length > 0) {
-    consola.warn(`Missing resolvers (${missingResolvers.length}):`);
-    for (const resolver of missingResolvers) {
-      consola.warn(`  - ${resolver}`);
-    }
   }
 
   const app = new Hono<{ Variables: OntologyVariables }>();
@@ -83,7 +70,7 @@ export function createApiApp(options: ApiServerOptions): Hono<{ Variables: Ontol
   });
 
   // Mount function routes under /api
-  const apiRoutes = createApiRoutes(config, configDir);
+  const apiRoutes = createApiRoutes(config);
   app.route("/api", apiRoutes);
 
   return app;

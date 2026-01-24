@@ -121,7 +121,6 @@ export async function startOnt(options: StartOntOptions = {}): Promise<StartOntR
   if (!mcpOnly) {
     const api = createApiApp({
       config,
-      configDir,
       env,
     });
 
@@ -144,7 +143,6 @@ export async function startOnt(options: StartOntOptions = {}): Promise<StartOntR
   if (!apiOnly) {
     const mcpServer = await startMcpServer({
       config,
-      configDir,
       env,
       port: mcpPort,
     });

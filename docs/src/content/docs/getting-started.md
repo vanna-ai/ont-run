@@ -22,6 +22,8 @@ Create an `ontology.config.ts` file in your project root:
 
 ```typescript
 import { defineOntology, z } from 'ont-run';
+import healthCheck from './resolvers/healthCheck.js';
+import getUser from './resolvers/getUser.js';
 
 export default defineOntology({
   name: 'my-api',
@@ -55,7 +57,7 @@ export default defineOntology({
       entities: [],
       inputs: z.object({}),
       outputs: z.object({ status: z.string() }),
-      resolver: './resolvers/healthCheck.ts',
+      resolver: healthCheck,
     },
 
     getUser: {
@@ -70,7 +72,7 @@ export default defineOntology({
         name: z.string(),
         email: z.string(),
       }),
-      resolver: './resolvers/getUser.ts',
+      resolver: getUser,
     },
   },
 });

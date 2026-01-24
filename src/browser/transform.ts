@@ -16,7 +16,6 @@ export interface GraphNode {
   metadata: {
     inputs?: Record<string, unknown>;
     outputs?: Record<string, unknown>;
-    resolver?: string;
     functionCount?: number;
     usesUserContext?: boolean;
   };
@@ -173,7 +172,6 @@ export function transformToGraphData(config: OntologyConfig): GraphData {
       metadata: {
         inputs: safeZodToJsonSchema(fn.inputs),
         outputs: fn.outputs ? safeZodToJsonSchema(fn.outputs) : undefined,
-        resolver: fn.resolver,
         usesUserContext: usesUserContext || undefined,
       },
     });

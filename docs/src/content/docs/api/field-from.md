@@ -30,6 +30,8 @@ Returns a Zod string schema with metadata attached. The schema validates that th
 
 ```typescript
 import { defineOntology, fieldFrom, z } from 'ont-run';
+import getPriorities from './resolvers/options/priorities.js';
+import createTicket from './resolvers/createTicket.js';
 
 export default defineOntology({
   // ...
@@ -44,7 +46,7 @@ export default defineOntology({
         value: z.string(),
         label: z.string(),
       })),
-      resolver: './resolvers/options/priorities.ts',
+      resolver: getPriorities,
     },
 
     // Function using fieldFrom
@@ -56,7 +58,7 @@ export default defineOntology({
         title: z.string(),
         priority: fieldFrom('getPriorities'),  // Use options from getPriorities
       }),
-      resolver: './resolvers/createTicket.ts',
+      resolver: createTicket,
     },
   },
 });

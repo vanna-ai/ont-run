@@ -39,8 +39,6 @@ function getAuthResult(authInfo?: AuthInfo): AuthResult {
 export interface McpServerOptions {
   /** The ontology configuration */
   config: OntologyConfig;
-  /** Directory containing the ontology.config.ts */
-  configDir: string;
   /** Environment to use */
   env: string;
   /** Port for the MCP HTTP server */
@@ -51,7 +49,7 @@ export interface McpServerOptions {
  * Create the MCP server instance with per-request authentication
  */
 export function createMcpServer(options: McpServerOptions): Server {
-  const { config, configDir, env } = options;
+  const { config, env } = options;
 
   // Get environment config
   const envConfig = config.environments[env];
@@ -67,7 +65,7 @@ export function createMcpServer(options: McpServerOptions): Server {
   const allTools = generateMcpTools(config);
 
   // Create tool executor factory that accepts per-request access groups
-  const executeToolWithAccess = createToolExecutor(config, configDir, env, envConfig, logger);
+  const executeToolWithAccess = createToolExecutor(config, env, envConfig, logger);
 
   // Create MCP server
   const server = new Server(

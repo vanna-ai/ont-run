@@ -38,11 +38,40 @@ export interface FieldOption {
 }
 
 /**
+ * Context passed to resolvers
+ */
+export interface ResolverContext {
+  /** Current environment name */
+  env: string;
+  /** Environment configuration */
+  envConfig: EnvironmentConfig;
+  /** Logger instance */
+  logger: {
+    info: (message: string, ...args: unknown[]) => void;
+    warn: (message: string, ...args: unknown[]) => void;
+    error: (message: string, ...args: unknown[]) => void;
+    debug: (message: string, ...args: unknown[]) => void;
+  };
+  /** Access groups for the current request */
+  accessGroups: string[];
+}
+
+/**
+ * Resolver function signature
+ */
+export type ResolverFunction<TArgs = unknown, TResult = unknown> = (
+  ctx: ResolverContext,
+  args: TArgs
+) => Promise<TResult> | TResult;
+
+/**
  * Definition of a function in the ontology
  */
 export interface FunctionDefinition<
   TGroups extends string = string,
   TEntities extends string = string,
+  TInputs extends z.ZodType = z.ZodType<unknown>,
+  TOutputs extends z.ZodType = z.ZodType<unknown>,
 > {
   /** Human-readable description of what this function does */
   description: string;
@@ -51,11 +80,11 @@ export interface FunctionDefinition<
   /** Which entities this function relates to (use empty array [] if none) */
   entities: TEntities[];
   /** Zod schema for input validation */
-  inputs: z.ZodType<unknown>;
+  inputs: TInputs;
   /** Zod schema for output validation/documentation */
-  outputs?: z.ZodType<unknown>;
-  /** Path to the resolver file (relative to ontology.config.ts) */
-  resolver: string;
+  outputs?: TOutputs;
+  /** Resolver function that handles this function's logic */
+  resolver: ResolverFunction<z.infer<TInputs>, z.infer<TOutputs>>;
 }
 
 /**
@@ -105,30 +134,3 @@ export interface OntologyConfig<
   /** Function definitions */
   functions: TFunctions;
 }
-
-/**
- * Context passed to resolvers
- */
-export interface ResolverContext {
-  /** Current environment name */
-  env: string;
-  /** Environment configuration */
-  envConfig: EnvironmentConfig;
-  /** Logger instance */
-  logger: {
-    info: (message: string, ...args: unknown[]) => void;
-    warn: (message: string, ...args: unknown[]) => void;
-    error: (message: string, ...args: unknown[]) => void;
-    debug: (message: string, ...args: unknown[]) => void;
-  };
-  /** Access groups for the current request */
-  accessGroups: string[];
-}
-
-/**
- * Resolver function signature
- */
-export type ResolverFunction<TArgs = unknown, TResult = unknown> = (
-  ctx: ResolverContext,
-  args: TArgs
-) => Promise<TResult> | TResult;
