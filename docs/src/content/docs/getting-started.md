@@ -147,6 +147,6 @@ This opens an interactive review UI where you can see exactly what changed and a
 
 ## Next steps
 
-- Learn about [Entities](/guides/entities) for organizing your functions
-- Add [Field References](/guides/field-references) for categorical fields
-- Configure [Access Control](/guides/access-control) for fine-grained permissions
+- Learn about [Entities](../guides/entities/) for organizing your functions
+- Add [Field References](../guides/field-references/) for categorical fields
+- Configure [Access Control](../guides/access-control/) for fine-grained permissions
