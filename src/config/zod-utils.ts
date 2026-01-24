@@ -1,22 +1,30 @@
 /**
- * Utility functions for inspecting Zod schemas.
- * These use duck typing to work across Zod 3 and Zod 4.
+ * Utility functions for inspecting Zod 4 schemas.
+ * These use duck typing to work across bundle boundaries.
  */
 
 /**
- * Check if a value is a Zod schema (duck typing to work across bundle boundaries and Zod versions)
+ * Check if a value is a Zod 3 schema (has _def but not _zod)
+ */
+export function isZod3Schema(val: unknown): boolean {
+  if (val === null || typeof val !== "object") return false;
+  // Zod 3 uses _def property without _zod
+  if ("_def" in val && "safeParse" in val && !("_zod" in val)) return true;
+  return false;
+}
+
+/**
+ * Check if a value is a Zod schema (duck typing to work across bundle boundaries)
  */
 export function isZodSchema(val: unknown): boolean {
   if (val === null || typeof val !== "object") return false;
   // Zod 4 uses _zod property
   if ("_zod" in val && "safeParse" in val) return true;
-  // Zod 3 uses _def property
-  if ("_def" in val && "safeParse" in val) return true;
   return false;
 }
 
 /**
- * Get the Zod type name from a schema (works with both Zod 3 and 4)
+ * Get the Zod type name from a schema
  */
 export function getZodTypeName(schema: unknown): string | undefined {
   if (!isZodSchema(schema)) return undefined;
@@ -29,56 +37,51 @@ export function getZodTypeName(schema: unknown): string | undefined {
       if (typeof def.typeName === "string") return def.typeName;
     }
   }
-  // Zod 3: check _def.typeName
-  if (s._def && typeof s._def === "object") {
-    const def = s._def as Record<string, unknown>;
-    if (typeof def.typeName === "string") return def.typeName;
-  }
   return undefined;
 }
 
 /**
- * Check if schema is a ZodObject (works with both Zod 3 and 4)
+ * Check if schema is a ZodObject
  */
 export function isZodObject(schema: unknown): boolean {
   const typeName = getZodTypeName(schema);
-  return typeName === "ZodObject" || typeName === "object";
+  return typeName === "ZodObject";
 }
 
 /**
- * Check if schema is a ZodOptional (works with both Zod 3 and 4)
+ * Check if schema is a ZodOptional
  */
 export function isZodOptional(schema: unknown): boolean {
   const typeName = getZodTypeName(schema);
-  return typeName === "ZodOptional" || typeName === "optional";
+  return typeName === "ZodOptional";
 }
 
 /**
- * Check if schema is a ZodNullable (works with both Zod 3 and 4)
+ * Check if schema is a ZodNullable
  */
 export function isZodNullable(schema: unknown): boolean {
   const typeName = getZodTypeName(schema);
-  return typeName === "ZodNullable" || typeName === "nullable";
+  return typeName === "ZodNullable";
 }
 
 /**
- * Check if schema is a ZodArray (works with both Zod 3 and 4)
+ * Check if schema is a ZodArray
  */
 export function isZodArray(schema: unknown): boolean {
   const typeName = getZodTypeName(schema);
-  return typeName === "ZodArray" || typeName === "array";
+  return typeName === "ZodArray";
 }
 
 /**
- * Check if schema is a ZodDefault (works with both Zod 3 and 4)
+ * Check if schema is a ZodDefault
  */
 export function isZodDefault(schema: unknown): boolean {
   const typeName = getZodTypeName(schema);
-  return typeName === "ZodDefault" || typeName === "default";
+  return typeName === "ZodDefault";
 }
 
 /**
- * Get the shape of a ZodObject schema (works with both Zod 3 and 4)
+ * Get the shape of a ZodObject schema
  */
 export function getObjectShape(schema: unknown): Record<string, unknown> | undefined {
   if (!isZodObject(schema)) return undefined;
@@ -93,15 +96,11 @@ export function getObjectShape(schema: unknown): Record<string, unknown> | undef
       }
     }
   }
-  // Zod 3: shape property directly on schema
-  if (typeof s.shape === "object" && s.shape !== null) {
-    return s.shape as Record<string, unknown>;
-  }
   return undefined;
 }
 
 /**
- * Get the inner schema from Optional/Nullable/Default (works with both Zod 3 and 4)
+ * Get the inner schema from Optional/Nullable/Default
  */
 export function getInnerSchema(schema: unknown): unknown {
   const s = schema as Record<string, unknown>;
@@ -113,19 +112,11 @@ export function getInnerSchema(schema: unknown): unknown {
       if (def.innerType) return def.innerType;
     }
   }
-  // Zod 3: unwrap method or _def.innerType
-  if (typeof s.unwrap === "function") {
-    return (s.unwrap as () => unknown)();
-  }
-  if (s._def && typeof s._def === "object") {
-    const def = s._def as Record<string, unknown>;
-    if (def.innerType) return def.innerType;
-  }
   return undefined;
 }
 
 /**
- * Get the element schema from a ZodArray (works with both Zod 3 and 4)
+ * Get the element schema from a ZodArray
  */
 export function getArrayElement(schema: unknown): unknown {
   if (!isZodArray(schema)) return undefined;
@@ -138,7 +129,5 @@ export function getArrayElement(schema: unknown): unknown {
       if (def.element) return def.element;
     }
   }
-  // Zod 3: element property directly on schema
-  if (s.element) return s.element;
   return undefined;
 }

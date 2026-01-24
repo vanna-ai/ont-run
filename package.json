@@ -1,6 +1,6 @@
 {
   "name": "ont-run",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Ontology-enforced API framework for AI coding agents",
   "type": "module",
   "bin": {
@@ -21,7 +21,7 @@
   "scripts": {
     "dev": "bun run bin/ont.ts",
     "build": "bun build ./src/index.ts --outdir ./dist --target node",
-    "build:cli": "bun build ./bin/ont.ts --outfile ./dist/bin/ont.js --target node --external @modelcontextprotocol/sdk",
+    "build:cli": "bun build ./bin/ont.ts --outfile ./dist/bin/ont.js --target node --external @modelcontextprotocol/sdk --external zod",
     "build:types": "tsc --declaration --emitDeclarationOnly",
     "prepublishOnly": "bun run build && bun run build:cli && bun run build:types",
     "docs": "cd docs && bun run dev",
@@ -34,15 +34,16 @@
     "citty": "^0.1.6",
     "consola": "^3.2.0",
     "hono": "^4.6.0",
-    "open": "^10.0.0",
-    "zod": "4"
+    "open": "^10.0.0"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "typescript": "^5.5.0"
+    "typescript": "^5.5.0",
+    "zod": "^4.0.0"
   },
   "peerDependencies": {
-    "bun": ">=1.0.0"
+    "bun": ">=1.0.0",
+    "zod": ">=4"
   },
   "peerDependenciesMeta": {
     "bun": {

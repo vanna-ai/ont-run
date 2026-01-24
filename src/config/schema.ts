@@ -2,6 +2,7 @@ import { z } from "zod";
 import { getFieldFromMetadata, getUserContextFields } from "./categorical.js";
 import {
   isZodSchema,
+  isZod3Schema,
   isZodObject,
   isZodOptional,
   isZodNullable,
@@ -44,18 +45,32 @@ function isFunction(val: unknown): val is (...args: unknown[]) => unknown {
 }
 
 /**
+ * Validate that a value is a Zod 4 schema, with helpful error for Zod 3
+ */
+function validateZodSchema(val: unknown, fieldName: string): boolean {
+  if (isZodSchema(val)) return true;
+  if (isZod3Schema(val)) {
+    throw new Error(
+      `${fieldName} appears to be a Zod 3 schema. ont-run requires Zod 4.\n` +
+      `Please upgrade: bun add zod@4`
+    );
+  }
+  return false;
+}
+
+/**
  * Schema for function definition
  */
 export const FunctionDefinitionSchema = z.object({
   description: z.string(),
   access: z.array(z.string()).min(1),
   entities: z.array(z.string()),
-  inputs: z.custom<z.ZodType>(isZodSchema, {
-    message: "inputs must be a Zod schema",
+  inputs: z.custom<z.ZodType>((val) => validateZodSchema(val, "inputs"), {
+    message: "inputs must be a Zod 4 schema",
   }),
   outputs: z
-    .custom<z.ZodType>(isZodSchema, {
-      message: "outputs must be a Zod schema",
+    .custom<z.ZodType>((val) => validateZodSchema(val, "outputs"), {
+      message: "outputs must be a Zod 4 schema",
     })
     .optional(),
   resolver: z.custom<(...args: unknown[]) => unknown>(isFunction, {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isZodObject, getObjectShape } from "./zod-utils";
 
 /**
  * Symbol for storing fieldFrom metadata on Zod schemas
@@ -175,19 +176,18 @@ export function hasUserContextMetadata(
 /**
  * Get all userContext field names from a Zod object schema
  *
- * Note: Uses _def.typeName check instead of instanceof to work across
- * module boundaries in bundled CLI.
+ * Note: Uses zod-utils for bundler compatibility (instanceof fails across module boundaries)
  */
 export function getUserContextFields(schema: z.ZodType): string[] {
   const fields: string[] = [];
 
-  // Use _def.typeName check for bundler compatibility (instanceof fails across module boundaries)
-  const def = (schema as unknown as { _def?: { typeName?: string; shape?: () => Record<string, unknown> } })._def;
-  if (def?.typeName === "ZodObject" && typeof def.shape === "function") {
-    const shape = def.shape();
-    for (const [key, value] of Object.entries(shape)) {
-      if (hasUserContextMetadata(value)) {
-        fields.push(key);
+  if (isZodObject(schema)) {
+    const shape = getObjectShape(schema);
+    if (shape) {
+      for (const [key, value] of Object.entries(shape)) {
+        if (hasUserContextMetadata(value)) {
+          fields.push(key);
+        }
       }
     }
   }
