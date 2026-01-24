@@ -235,7 +235,7 @@ await startOnt();
     packageJson.type = "module";
     packageJson.scripts = {
       ...(packageJson.scripts as Record<string, string> || {}),
-      dev: "bun run server.ts",
+      dev: "NODE_ENV=development bun run server.ts",
       start: "NODE_ENV=production bun run server.ts",
       review: "bunx ont-run review",
     };

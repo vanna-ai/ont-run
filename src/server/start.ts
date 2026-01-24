@@ -19,7 +19,7 @@ export interface StartOntOptions {
   mcpPort?: number;
   /** Environment to use (default: 'dev') */
   env?: string;
-  /** Mode: 'development' warns on lockfile issues, 'production' fails. Auto-detected from NODE_ENV if not set. */
+  /** Mode: 'development' warns on lockfile issues, 'production' fails. Defaults to 'production' unless NODE_ENV is explicitly 'development'. */
   mode?: "development" | "production";
   /** Set to true to only start the API server */
   apiOnly?: boolean;
@@ -33,11 +33,12 @@ export interface StartOntResult {
 }
 
 /**
- * Detect mode from NODE_ENV if not explicitly set
+ * Detect mode from NODE_ENV if not explicitly set.
+ * Defaults to 'production' (strict) unless NODE_ENV is explicitly 'development'.
  */
 function detectMode(explicit?: "development" | "production"): "development" | "production" {
   if (explicit) return explicit;
-  return process.env.NODE_ENV === "production" ? "production" : "development";
+  return process.env.NODE_ENV === "development" ? "development" : "production";
 }
 
 /**
