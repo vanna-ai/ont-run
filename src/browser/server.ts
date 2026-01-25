@@ -2,11 +2,14 @@ import { Hono } from "hono";
 import { readFileSync } from "fs";
 import { basename } from "path";
 import open from "open";
-import type { OntologyConfig } from "../config/types.js";
+import { z } from "zod";
+import type { OntologyConfig, ResolverContext, EnvironmentConfig } from "../config/types.js";
 import type { OntologyDiff } from "../lockfile/types.js";
 import { writeLockfile } from "../lockfile/index.js";
 import { serve, findAvailablePort } from "../runtime/index.js";
 import { transformToGraphData, enhanceWithDiff, searchNodes, getNodeDetails, type EnhancedGraphData } from "./transform.js";
+import { getFieldFromMetadata, hasUserContextMetadata } from "../config/categorical.js";
+import { isZodObject, isZodOptional, isZodNullable, isZodDefault, isZodArray, getObjectShape, getInnerSchema, getArrayElement } from "../config/zod-utils.js";
 
 export interface BrowserServerOptions {
   config: OntologyConfig;
@@ -23,6 +26,117 @@ export interface BrowserServerOptions {
 export interface BrowserServerResult {
   /** Whether changes were approved (only set if there were changes) */
   approved?: boolean;
+}
+
+/** Field info for form generation */
+interface FieldInfo {
+  name: string;
+  type: string;
+  required: boolean;
+  isUserContext: boolean;
+  fieldFrom?: string;
+  isQueryBased?: boolean;
+  schema: Record<string, unknown>;
+  innerSchema?: Record<string, unknown>;
+}
+
+/** Analyze a Zod input schema for form generation */
+function analyzeInputSchema(schema: z.ZodTypeAny, functions?: Record<string, { inputs: z.ZodTypeAny }>): FieldInfo[] {
+  const fields: FieldInfo[] = [];
+
+  if (!isZodObject(schema)) {
+    return fields;
+  }
+
+  const shape = getObjectShape(schema);
+  if (!shape) {
+    return fields;
+  }
+
+  for (const [name, fieldSchema] of Object.entries(shape)) {
+    const field = analyzeField(name, fieldSchema as z.ZodTypeAny, functions);
+    fields.push(field);
+  }
+
+  return fields;
+}
+
+/** Analyze a single field */
+function analyzeField(name: string, schema: z.ZodTypeAny, functions?: Record<string, { inputs: z.ZodTypeAny }>): FieldInfo {
+  let required = true;
+  let unwrapped = schema;
+
+  // Unwrap optional/nullable/default
+  if (isZodOptional(schema)) {
+    required = false;
+    const inner = getInnerSchema(schema);
+    if (inner) unwrapped = inner as z.ZodTypeAny;
+  }
+  if (isZodNullable(unwrapped)) {
+    required = false;
+    const inner = getInnerSchema(unwrapped);
+    if (inner) unwrapped = inner as z.ZodTypeAny;
+  }
+  if (isZodDefault(unwrapped)) {
+    required = false;
+    const inner = getInnerSchema(unwrapped);
+    if (inner) unwrapped = inner as z.ZodTypeAny;
+  }
+
+  // Check for userContext
+  const isUserContext = hasUserContextMetadata(schema) || hasUserContextMetadata(unwrapped);
+
+  // Check for fieldFrom
+  const fieldFromMeta = getFieldFromMetadata(schema) || getFieldFromMetadata(unwrapped);
+  const fieldFrom = fieldFromMeta?.functionName;
+
+  // Check if fieldFrom source function is query-based (has 'query' input)
+  let isQueryBased = false;
+  if (fieldFrom && functions && functions[fieldFrom]) {
+    const sourceInputs = functions[fieldFrom].inputs;
+    if (isZodObject(sourceInputs)) {
+      const sourceShape = getObjectShape(sourceInputs);
+      if (sourceShape && 'query' in sourceShape) {
+        isQueryBased = true;
+      }
+    }
+  }
+
+  // Get JSON schema representation
+  let jsonSchema: Record<string, unknown> = { type: "unknown" };
+  try {
+    jsonSchema = z.toJSONSchema(unwrapped, { reused: "inline", unrepresentable: "any" }) as Record<string, unknown>;
+    delete jsonSchema.$schema;
+  } catch {
+    // Ignore schema conversion errors
+  }
+
+  // Get inner schema for userContext fields (the shape of the expected object)
+  let innerSchema: Record<string, unknown> | undefined;
+  if (isUserContext && isZodObject(unwrapped)) {
+    innerSchema = jsonSchema;
+  }
+
+  // Determine field type
+  let type = (jsonSchema.type as string) || "unknown";
+  if (fieldFrom) {
+    type = "fieldFrom";
+  } else if (isUserContext) {
+    type = "userContext";
+  } else if (jsonSchema.enum) {
+    type = "enum";
+  }
+
+  return {
+    name,
+    type,
+    required,
+    isUserContext,
+    fieldFrom,
+    isQueryBased: isQueryBased || undefined,
+    schema: jsonSchema,
+    innerSchema,
+  };
 }
 
 export async function startBrowserServer(options: BrowserServerOptions): Promise<BrowserServerResult> {
@@ -111,6 +225,153 @@ export async function startBrowserServer(options: BrowserServerOptions): Promise
           },
           500
         );
+      }
+    });
+
+    // API: Get config info (environments, access groups) for test UI
+    app.get("/api/config", (c) => {
+      return c.json({
+        environments: Object.keys(config.environments),
+        accessGroups: Object.keys(config.accessGroups),
+      });
+    });
+
+    // API: Get function schema for form generation
+    app.get("/api/function/:name/schema", (c) => {
+      const { name } = c.req.param();
+      const fn = config.functions[name];
+      if (!fn) {
+        return c.json({ error: "Function not found" }, 404);
+      }
+
+      try {
+        const schema = analyzeInputSchema(fn.inputs, config.functions);
+        return c.json({
+          name,
+          description: fn.description,
+          access: fn.access,
+          entities: fn.entities,
+          schema,
+        });
+      } catch (error) {
+        return c.json({
+          error: "Failed to analyze schema",
+          message: error instanceof Error ? error.message : "Unknown error",
+        }, 500);
+      }
+    });
+
+    // API: Load options for fieldFrom fields
+    app.post("/api/function/:name/options", async (c) => {
+      const { name } = c.req.param();
+      const fn = config.functions[name];
+      if (!fn) {
+        return c.json({ error: "Function not found" }, 404);
+      }
+
+      try {
+        const body = await c.req.json() as { env: string; accessGroups: string[]; query?: string };
+        const { env, accessGroups, query } = body;
+
+        const envConfig = config.environments[env] || {};
+        const ctx: ResolverContext = {
+          env,
+          envConfig,
+          accessGroups,
+          logger: {
+            info: console.log,
+            warn: console.warn,
+            error: console.error,
+            debug: console.log,
+          },
+        };
+
+        // Check if this is a query-based (autocomplete) function
+        const shape = isZodObject(fn.inputs) ? getObjectShape(fn.inputs) : null;
+        const hasQueryInput = shape && 'query' in shape;
+
+        const args = hasQueryInput ? { query: query || '' } : {};
+        const result = await fn.resolver(ctx, args);
+
+        return c.json({ options: result });
+      } catch (error) {
+        return c.json({
+          error: "Failed to load options",
+          message: error instanceof Error ? error.message : "Unknown error",
+        }, 500);
+      }
+    });
+
+    // API: Execute function with mocked context (TEST MODE ONLY)
+    app.post("/api/test/:name", async (c) => {
+      const { name } = c.req.param();
+      const fn = config.functions[name];
+      if (!fn) {
+        return c.json({ error: "Function not found" }, 404);
+      }
+
+      try {
+        const body = await c.req.json() as {
+          env: string;
+          accessGroups: string[];
+          mockUserContext?: Record<string, unknown>;
+          inputs: Record<string, unknown>;
+        };
+        const { env, accessGroups, mockUserContext, inputs } = body;
+
+        const envConfig = config.environments[env] || {};
+        const ctx: ResolverContext = {
+          env,
+          envConfig,
+          accessGroups,
+          logger: {
+            info: console.log,
+            warn: console.warn,
+            error: console.error,
+            debug: console.log,
+          },
+        };
+
+        // Merge inputs with mocked user context
+        const fullInputs = { ...inputs };
+        if (mockUserContext) {
+          // Inject mocked user context values into the inputs
+          for (const [key, value] of Object.entries(mockUserContext)) {
+            fullInputs[key] = value;
+          }
+        }
+
+        // Validate inputs
+        const parseResult = fn.inputs.safeParse(fullInputs);
+        if (!parseResult.success) {
+          // Zod 4 uses .issues
+          const issues = parseResult.error.issues || [];
+          return c.json({
+            success: false,
+            error: "Validation failed",
+            validationErrors: issues.map((e) => ({
+              path: e.path.map(String).join('.'),
+              message: e.message,
+            })),
+          }, 400);
+        }
+
+        // Execute resolver
+        const startTime = Date.now();
+        const result = await fn.resolver(ctx, parseResult.data);
+        const executionTime = Date.now() - startTime;
+
+        return c.json({
+          success: true,
+          result,
+          executionTime,
+        });
+      } catch (error) {
+        return c.json({
+          success: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+          stack: error instanceof Error ? error.stack : undefined,
+        }, 500);
       }
     });
 
@@ -1440,6 +1701,748 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
       font-style: italic;
     }
 
+    /* Test Modal Overlay */
+    .test-modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(2, 61, 96, 0.4);
+      backdrop-filter: blur(4px);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .test-modal-backdrop.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .test-modal {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 25px 80px rgba(2, 61, 96, 0.25);
+      width: 90%;
+      max-width: 680px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      transform: translateY(20px) scale(0.95);
+      transition: all 0.3s ease;
+    }
+
+    .test-modal-backdrop.visible .test-modal {
+      transform: translateY(0) scale(1);
+    }
+
+    .test-modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid rgba(2, 61, 96, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(135deg, rgba(21, 168, 168, 0.05), rgba(191, 19, 99, 0.03));
+      border-radius: 16px 16px 0 0;
+    }
+
+    .test-modal-title {
+      font-family: 'Roboto Slab', serif;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--vanna-navy);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .test-mode-badge {
+      background: rgba(254, 93, 38, 0.1);
+      color: var(--vanna-orange);
+      padding: 3px 10px;
+      border-radius: 9999px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .test-modal-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+
+    .test-modal-close:hover {
+      background: rgba(2, 61, 96, 0.08);
+      color: var(--text-primary);
+    }
+
+    .test-modal-body {
+      padding: 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .test-modal-description {
+      color: var(--text-secondary);
+      font-size: 13px;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    /* Test Panel (legacy fallback) */
+    .test-panel {
+      border-top: 1px solid rgba(2, 61, 96, 0.08);
+      background: linear-gradient(135deg, rgba(21, 168, 168, 0.03), rgba(191, 19, 99, 0.02));
+    }
+
+    .test-panel-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid rgba(2, 61, 96, 0.06);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .test-panel-title {
+      font-family: 'Roboto Slab', serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--vanna-navy);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .test-panel-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .test-panel-close:hover {
+      background: rgba(2, 61, 96, 0.05);
+      color: var(--text-primary);
+    }
+
+    .test-panel-content {
+      padding: 16px 24px;
+    }
+
+    .test-form-section {
+      margin-bottom: 24px;
+    }
+
+    .test-form-section-title {
+      font-family: 'Roboto Slab', serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--vanna-navy);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .test-form-section-title svg {
+      color: var(--vanna-teal);
+    }
+
+    .test-form-group {
+      margin-bottom: 16px;
+    }
+
+    .test-form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .test-form-label .required {
+      color: var(--vanna-magenta);
+    }
+
+    .test-form-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      font-style: italic;
+    }
+
+    .test-form-input,
+    .test-form-select,
+    .test-form-textarea {
+      width: 100%;
+      padding: 10px 14px;
+      background: white;
+      border: 1px solid rgba(2, 61, 96, 0.15);
+      border-radius: 8px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px;
+      color: var(--text-primary);
+      transition: all 0.2s ease;
+    }
+
+    .test-form-input:focus,
+    .test-form-select:focus,
+    .test-form-textarea:focus {
+      outline: none;
+      border-color: var(--vanna-teal);
+      box-shadow: 0 0 0 3px rgba(21, 168, 168, 0.1);
+    }
+
+    .test-form-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .test-form-textarea {
+      min-height: 80px;
+      resize: vertical;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+    }
+
+    .test-form-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .test-form-checkbox input {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--vanna-teal);
+    }
+
+    .test-form-checkbox label {
+      font-size: 13px;
+      color: var(--text-primary);
+      cursor: pointer;
+    }
+
+    /* Access Groups Checkbox Grid */
+    .access-groups-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .access-group-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: white;
+      border: 1px solid rgba(2, 61, 96, 0.15);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .access-group-checkbox:hover {
+      border-color: var(--vanna-teal);
+      background: rgba(21, 168, 168, 0.03);
+    }
+
+    .access-group-checkbox.checked {
+      border-color: var(--vanna-teal);
+      background: rgba(21, 168, 168, 0.08);
+    }
+
+    .access-group-checkbox input {
+      width: 14px;
+      height: 14px;
+      accent-color: var(--vanna-teal);
+      margin: 0;
+    }
+
+    .access-group-checkbox span {
+      font-size: 12px;
+      color: var(--text-primary);
+    }
+
+    .test-form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .test-context-section {
+      background: rgba(21, 168, 168, 0.05);
+      border: 1px solid rgba(21, 168, 168, 0.15);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    .test-context-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .test-context-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--vanna-teal);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .user-context-section {
+      background: rgba(254, 93, 38, 0.05);
+      border: 1px dashed rgba(254, 93, 38, 0.3);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    .user-context-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .user-context-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--vanna-orange);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .user-context-field {
+      background: rgba(254, 93, 38, 0.05);
+      border: 1px dashed rgba(254, 93, 38, 0.3);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .user-context-field-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .mock-badge {
+      background: rgba(254, 93, 38, 0.15);
+      color: var(--vanna-orange);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .fieldFrom-field {
+      position: relative;
+    }
+
+    .fieldFrom-hint {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      color: var(--text-muted);
+      background: rgba(2, 61, 96, 0.05);
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 8px;
+    }
+
+    .fieldFrom-field .load-options-btn {
+      margin-top: 8px;
+      background: var(--vanna-teal);
+      color: white;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .fieldFrom-field .load-options-btn:hover {
+      background: var(--vanna-navy);
+    }
+
+    .fieldFrom-field .load-options-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .test-execute-btn {
+      width: 100%;
+      padding: 12px;
+      background: var(--vanna-teal);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .test-execute-btn:hover:not(:disabled) {
+      background: var(--vanna-navy);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(21, 168, 168, 0.3);
+    }
+
+    .test-execute-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .test-execute-btn.loading {
+      background: var(--text-muted);
+    }
+
+    .test-result {
+      margin-top: 20px;
+      padding: 16px;
+      border-radius: 12px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      overflow-x: auto;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .test-result.success {
+      background: rgba(42, 157, 143, 0.08);
+      border: 1px solid rgba(42, 157, 143, 0.25);
+    }
+
+    .test-result.error {
+      background: rgba(196, 69, 54, 0.08);
+      border: 1px solid rgba(196, 69, 54, 0.25);
+    }
+
+    .test-result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .test-result-header.success {
+      color: #2a9d8f;
+    }
+
+    .test-result-header.error {
+      color: #c44536;
+    }
+
+    .test-result-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .test-result-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: normal;
+      background: rgba(0, 0, 0, 0.05);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .test-result-count {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: normal;
+    }
+
+    .test-result-content {
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+    }
+
+    /* Results Table */
+    .test-results-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    .test-results-table th {
+      background: rgba(2, 61, 96, 0.08);
+      text-align: left;
+      padding: 10px 12px;
+      font-weight: 600;
+      color: var(--vanna-navy);
+      border-bottom: 2px solid rgba(2, 61, 96, 0.15);
+      white-space: nowrap;
+    }
+
+    .test-results-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(2, 61, 96, 0.08);
+      color: var(--text-primary);
+      vertical-align: top;
+    }
+
+    .test-results-table tr:hover td {
+      background: rgba(21, 168, 168, 0.05);
+    }
+
+    .test-results-table td.cell-number {
+      font-family: 'Space Mono', monospace;
+      color: var(--vanna-teal);
+    }
+
+    .test-results-table td.cell-boolean {
+      font-family: 'Space Mono', monospace;
+    }
+
+    .test-results-table td.cell-boolean.true {
+      color: #2a9d8f;
+    }
+
+    .test-results-table td.cell-boolean.false {
+      color: var(--text-muted);
+    }
+
+    .test-results-table td.cell-null {
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    .test-results-table td.cell-object {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Key-Value Display for Single Object */
+    .test-results-kv {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 8px 16px;
+      margin-top: 8px;
+    }
+
+    .test-results-kv dt {
+      font-weight: 600;
+      color: var(--vanna-navy);
+      font-size: 12px;
+    }
+
+    .test-results-kv dd {
+      margin: 0;
+      color: var(--text-primary);
+      font-size: 12px;
+      word-break: break-word;
+    }
+
+    .test-results-kv dd.value-number {
+      font-family: 'Space Mono', monospace;
+      color: var(--vanna-teal);
+    }
+
+    .test-results-kv dd.value-boolean {
+      font-family: 'Space Mono', monospace;
+    }
+
+    .test-results-kv dd.value-null {
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    /* Primitive Result */
+    .test-result-primitive {
+      padding: 12px 16px;
+      background: rgba(21, 168, 168, 0.05);
+      border-radius: 8px;
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      color: var(--vanna-navy);
+      margin-top: 8px;
+    }
+
+    /* View Toggle */
+    .test-result-view-toggle {
+      display: flex;
+      gap: 4px;
+      background: rgba(0, 0, 0, 0.05);
+      padding: 2px;
+      border-radius: 6px;
+    }
+
+    .test-result-view-toggle button {
+      background: transparent;
+      border: none;
+      padding: 4px 10px;
+      font-size: 11px;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+    }
+
+    .test-result-view-toggle button.active {
+      background: white;
+      color: var(--vanna-navy);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .test-result-view-toggle button:hover:not(.active) {
+      color: var(--text-primary);
+    }
+
+    .test-validation-errors {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .test-validation-errors li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 10px 12px;
+      background: rgba(196, 69, 54, 0.05);
+      border-radius: 6px;
+      margin-bottom: 6px;
+    }
+
+    .test-validation-errors li:last-child {
+      margin-bottom: 0;
+    }
+
+    .test-validation-icon {
+      color: #c44536;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .test-validation-path {
+      font-weight: 600;
+      color: var(--vanna-navy);
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+    }
+
+    .test-validation-message {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    /* Error Stack Trace */
+    .test-error-stack {
+      margin-top: 12px;
+    }
+
+    .test-error-stack-toggle {
+      background: transparent;
+      border: 1px solid rgba(196, 69, 54, 0.3);
+      color: #c44536;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .test-error-stack-toggle:hover {
+      background: rgba(196, 69, 54, 0.05);
+    }
+
+    .test-error-stack-content {
+      margin-top: 8px;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.03);
+      border-radius: 6px;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: pre-wrap;
+      word-break: break-word;
+      display: none;
+    }
+
+    .test-error-stack-content.visible {
+      display: block;
+    }
+
+    .test-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: var(--vanna-teal);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-top: 12px;
+    }
+
+    .test-btn:hover {
+      background: var(--vanna-navy);
+      transform: translateY(-1px);
+    }
+
+    .test-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
     /* Keyboard hint */
     .kbd {
       display: inline-block;
@@ -1517,9 +2520,38 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
       padding: 2px 8px;
       border-radius: 9999px;
     }
+
+    /* Animations */
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
+  <!-- Test Modal -->
+  <div id="testModalBackdrop" class="test-modal-backdrop" onclick="if(event.target === this) closeTestModal()">
+    <div class="test-modal">
+      <div class="test-modal-header">
+        <div class="test-modal-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          <span id="testModalFunctionName">Test Function</span>
+          <span class="test-mode-badge">Test Mode</span>
+        </div>
+        <button class="test-modal-close" onclick="closeTestModal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="test-modal-body" id="testModalBody">
+        <!-- Content will be populated dynamically -->
+      </div>
+    </div>
+  </div>
+
   <div class="layout">
     <header class="header">
       <div class="logo">
@@ -2151,6 +3183,23 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
             </div>
           \`;
         }
+
+        // Test Function button (only for non-removed functions)
+        if (changeStatus !== 'removed') {
+          html += \`
+            <div class="detail-section">
+              <button class="test-btn" onclick="openTestPanel('\${data.label}')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                Test Function
+              </button>
+            </div>
+          \`;
+        }
+
+        // Test panel placeholder (will be populated when test button is clicked)
+        html += '<div id="testPanel" class="test-panel" style="display: none;"></div>';
       } else if (data.type === 'accessGroup' || data.type === 'entity') {
         // Functions with details
         if (details.connections.functions.length > 0) {
@@ -2816,6 +3865,845 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
           rejectBtn.disabled = false;
         }
       });
+    }
+
+    // ========== Test Function Modal ==========
+    let testConfig = null;
+    let currentTestFunction = null;
+    let loadedFieldOptions = {};
+    let currentResultData = null;
+    let currentResultView = 'table'; // 'table' or 'json'
+
+    // Load config (environments, access groups) on startup
+    async function loadTestConfig() {
+      try {
+        const res = await fetch('/api/config');
+        testConfig = await res.json();
+      } catch (err) {
+        console.error('Failed to load config:', err);
+      }
+    }
+    loadTestConfig();
+
+    // Open test modal for a function
+    async function openTestPanel(functionName) {
+      currentTestFunction = functionName;
+      loadedFieldOptions = {};
+      currentResultData = null;
+
+      const backdrop = document.getElementById('testModalBackdrop');
+      const nameEl = document.getElementById('testModalFunctionName');
+      const body = document.getElementById('testModalBody');
+
+      if (!backdrop || !body) return;
+
+      nameEl.textContent = \`Test: \${functionName}\`;
+      body.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);">Loading...</div>';
+      backdrop.classList.add('visible');
+
+      try {
+        const res = await fetch(\`/api/function/\${functionName}/schema\`);
+        const data = await res.json();
+
+        if (data.error) {
+          body.innerHTML = \`<div class="no-data" style="padding: 40px; text-align: center;">Error: \${data.error}</div>\`;
+          return;
+        }
+
+        renderTestModal(data);
+      } catch (err) {
+        body.innerHTML = \`<div class="no-data" style="padding: 40px; text-align: center;">Error loading schema: \${err.message}</div>\`;
+      }
+    }
+    window.openTestPanel = openTestPanel;
+
+    function closeTestModal() {
+      const backdrop = document.getElementById('testModalBackdrop');
+      if (backdrop) {
+        backdrop.classList.remove('visible');
+      }
+      currentTestFunction = null;
+      currentResultData = null;
+    }
+    window.closeTestModal = closeTestModal;
+
+    // Also keep closeTestPanel for backwards compatibility
+    function closeTestPanel() {
+      closeTestModal();
+    }
+    window.closeTestPanel = closeTestPanel;
+
+    function renderTestModal(data) {
+      const body = document.getElementById('testModalBody');
+      const { name, description, schema } = data;
+
+      // Separate fields into regular, fieldFrom, and userContext
+      const regularFields = schema.filter(f => !f.isUserContext && !f.fieldFrom);
+      const fieldFromFields = schema.filter(f => f.fieldFrom);
+      const userContextFields = schema.filter(f => f.isUserContext);
+
+      let html = '';
+
+      // Description if available
+      if (description) {
+        html += \`<p class="test-modal-description">\${description}</p>\`;
+      }
+
+      // Test Context Section
+      html += \`
+        <div class="test-context-section">
+          <div class="test-context-header">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>
+            </svg>
+            <span class="test-context-title">Test Context</span>
+          </div>
+          <div class="test-form-group">
+            <label class="test-form-label">Environment</label>
+            <select class="test-form-select" id="testEnv">
+              \${testConfig?.environments?.map(e => \`<option value="\${e}">\${e}</option>\`).join('') || '<option value="dev">dev</option>'}
+            </select>
+          </div>
+          <div class="test-form-group">
+            <label class="test-form-label">Access Groups</label>
+            <div class="access-groups-grid">
+              \${testConfig?.accessGroups?.map(g => \`
+                <label class="access-group-checkbox checked">
+                  <input type="checkbox" name="accessGroup" value="\${g}" checked onchange="this.parentElement.classList.toggle('checked', this.checked)">
+                  <span>\${g}</span>
+                </label>
+              \`).join('') || '<span style="color: var(--text-muted); font-size: 12px;">No access groups defined</span>'}
+            </div>
+          </div>
+        </div>
+      \`;
+
+      // Function Inputs Section
+      if (regularFields.length > 0 || fieldFromFields.length > 0) {
+        html += \`
+          <div class="test-form-section">
+            <div class="test-form-section-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <line x1="9" y1="9" x2="15" y2="9"/>
+                <line x1="9" y1="15" x2="15" y2="15"/>
+              </svg>
+              Function Inputs
+            </div>
+        \`;
+
+        for (const field of regularFields) {
+          html += renderFormField(field);
+        }
+
+        for (const field of fieldFromFields) {
+          html += renderFieldFromField(field);
+        }
+
+        html += '</div>';
+      }
+
+      // UserContext fields (mocked)
+      if (userContextFields.length > 0) {
+        html += \`
+          <div class="user-context-section">
+            <div class="user-context-header">
+              <div class="user-context-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+                Mock User Context
+              </div>
+              <span class="mock-badge">Test Only</span>
+            </div>
+        \`;
+
+        for (const field of userContextFields) {
+          html += renderUserContextField(field);
+        }
+
+        html += '</div>';
+      }
+
+      // Execute Button and Results
+      html += \`
+        <button class="test-execute-btn" id="executeTestBtn" onclick="executeTest()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          Execute Function
+        </button>
+        <div id="testResult"></div>
+      \`;
+
+      body.innerHTML = html;
+    }
+
+    function formatFieldName(name) {
+      // Convert camelCase to Title Case with spaces
+      return name
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/^./, str => str.toUpperCase())
+        .trim();
+    }
+
+    function getTypeHint(schema) {
+      if (schema.enum) return \`One of: \${schema.enum.join(', ')}\`;
+      if (schema.type === 'number' || schema.type === 'integer') {
+        let hint = schema.type === 'integer' ? 'Integer' : 'Number';
+        if (schema.minimum !== undefined) hint += \`, min: \${schema.minimum}\`;
+        if (schema.maximum !== undefined) hint += \`, max: \${schema.maximum}\`;
+        return hint;
+      }
+      if (schema.type === 'string') {
+        if (schema.format === 'email') return 'Email address';
+        if (schema.format === 'date') return 'Date (YYYY-MM-DD)';
+        if (schema.format === 'date-time') return 'Date and time';
+        if (schema.minLength || schema.maxLength) {
+          const parts = [];
+          if (schema.minLength) parts.push(\`min \${schema.minLength}\`);
+          if (schema.maxLength) parts.push(\`max \${schema.maxLength}\`);
+          return \`String (\${parts.join(', ')} chars)\`;
+        }
+        return 'Text';
+      }
+      if (schema.type === 'array') return 'Array (JSON format)';
+      if (schema.type === 'object') return 'Object (JSON format)';
+      return '';
+    }
+
+    function renderFormField(field) {
+      const requiredMark = field.required ? '<span class="required">*</span>' : '';
+      const inputId = \`test-input-\${field.name}\`;
+      const displayName = formatFieldName(field.name);
+      const typeHint = getTypeHint(field.schema);
+
+      let inputHtml = '';
+
+      if (field.schema.enum) {
+        // Enum field - render as select
+        inputHtml = \`
+          <select class="test-form-select" id="\${inputId}" data-field="\${field.name}">
+            <option value="">Select an option...</option>
+            \${field.schema.enum.map(v => \`<option value="\${v}">\${v}</option>\`).join('')}
+          </select>
+        \`;
+      } else if (field.schema.type === 'boolean') {
+        // Boolean - render as checkbox
+        inputHtml = \`
+          <div class="test-form-checkbox">
+            <input type="checkbox" id="\${inputId}" data-field="\${field.name}" data-type="boolean">
+            <label for="\${inputId}">\${displayName}</label>
+          </div>
+        \`;
+        return \`<div class="test-form-group">\${inputHtml}</div>\`;
+      } else if (field.schema.type === 'number' || field.schema.type === 'integer') {
+        // Number field
+        const step = field.schema.type === 'integer' ? '1' : 'any';
+        inputHtml = \`<input type="number" step="\${step}" class="test-form-input" id="\${inputId}" data-field="\${field.name}" data-type="number" placeholder="Enter a \${field.schema.type}...">\`;
+      } else if (field.schema.type === 'object' || field.schema.type === 'array') {
+        // Complex type - render as JSON textarea
+        const placeholder = field.schema.type === 'array' ? '[]' : '{}';
+        inputHtml = \`<textarea class="test-form-textarea" id="\${inputId}" data-field="\${field.name}" data-type="json" placeholder="\${placeholder}"></textarea>\`;
+      } else {
+        // Default: string input
+        const inputType = field.schema.format === 'email' ? 'email' : 'text';
+        const placeholder = field.schema.format === 'email' ? 'user@example.com' : \`Enter \${displayName.toLowerCase()}...\`;
+        inputHtml = \`<input type="\${inputType}" class="test-form-input" id="\${inputId}" data-field="\${field.name}" placeholder="\${placeholder}">\`;
+      }
+
+      return \`
+        <div class="test-form-group">
+          <label class="test-form-label" for="\${inputId}">\${displayName} \${requiredMark}</label>
+          \${inputHtml}
+          \${typeHint ? \`<div class="test-form-hint">\${typeHint}</div>\` : ''}
+        </div>
+      \`;
+    }
+
+    function renderFieldFromField(field) {
+      const requiredMark = field.required ? '<span class="required">*</span>' : '';
+      const inputId = \`test-input-\${field.name}\`;
+      const displayName = formatFieldName(field.name);
+
+      if (field.isQueryBased) {
+        // Query-based (autocomplete) field
+        return \`
+          <div class="test-form-group fieldFrom-field">
+            <label class="test-form-label" for="\${inputId}">
+              \${displayName} \${requiredMark}
+              <span class="fieldFrom-hint">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                </svg>
+                \${field.fieldFrom}
+              </span>
+            </label>
+            <input type="text" class="test-form-input" id="\${inputId}-search" placeholder="Type to search..." oninput="searchFieldOptions('\${field.name}', '\${field.fieldFrom}', this.value)">
+            <select class="test-form-select" id="\${inputId}" data-field="\${field.name}" style="margin-top: 8px;">
+              <option value="">Type above to search...</option>
+            </select>
+            <div class="test-form-hint">Search-based selection from \${field.fieldFrom}</div>
+          </div>
+        \`;
+      } else {
+        // Bulk options field
+        return \`
+          <div class="test-form-group fieldFrom-field">
+            <label class="test-form-label" for="\${inputId}">
+              \${displayName} \${requiredMark}
+              <span class="fieldFrom-hint">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                \${field.fieldFrom}
+              </span>
+            </label>
+            <select class="test-form-select" id="\${inputId}" data-field="\${field.name}" disabled>
+              <option value="">Click "Load Options" to populate</option>
+            </select>
+            <button type="button" class="load-options-btn" onclick="loadFieldOptions('\${field.name}', '\${field.fieldFrom}')">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Load Options
+            </button>
+            <div class="test-form-hint">Options loaded from \${field.fieldFrom}</div>
+          </div>
+        \`;
+      }
+    }
+
+    function renderUserContextField(field) {
+      const inputId = \`test-input-\${field.name}\`;
+      const displayName = formatFieldName(field.name);
+
+      // If we have inner schema, render individual fields
+      if (field.innerSchema && field.innerSchema.type === 'object' && field.innerSchema.properties) {
+        const props = field.innerSchema.properties;
+        let fieldsHtml = '';
+
+        for (const [key, prop] of Object.entries(props)) {
+          const subInputId = \`\${inputId}-\${key}\`;
+          const subDisplayName = formatFieldName(key);
+          const defaultVal = getDefaultValueForType(prop);
+
+          if (prop.type === 'boolean') {
+            fieldsHtml += \`
+              <div class="test-form-group" style="margin-bottom: 12px;">
+                <div class="test-form-checkbox">
+                  <input type="checkbox" id="\${subInputId}" data-usercontext-field="\${field.name}" data-usercontext-key="\${key}" \${defaultVal ? 'checked' : ''}>
+                  <label for="\${subInputId}">\${subDisplayName}</label>
+                </div>
+              </div>
+            \`;
+          } else if (prop.type === 'number' || prop.type === 'integer') {
+            fieldsHtml += \`
+              <div class="test-form-group" style="margin-bottom: 12px;">
+                <label class="test-form-label" for="\${subInputId}">\${subDisplayName}</label>
+                <input type="number" class="test-form-input" id="\${subInputId}" data-usercontext-field="\${field.name}" data-usercontext-key="\${key}" value="\${defaultVal}" placeholder="Enter \${subDisplayName.toLowerCase()}...">
+              </div>
+            \`;
+          } else {
+            // String or other type
+            const inputType = prop.format === 'email' ? 'email' : 'text';
+            const placeholder = prop.format === 'email' ? 'user@example.com' : \`Enter \${subDisplayName.toLowerCase()}...\`;
+            fieldsHtml += \`
+              <div class="test-form-group" style="margin-bottom: 12px;">
+                <label class="test-form-label" for="\${subInputId}">\${subDisplayName}</label>
+                <input type="\${inputType}" class="test-form-input" id="\${subInputId}" data-usercontext-field="\${field.name}" data-usercontext-key="\${key}" value="\${defaultVal}" placeholder="\${placeholder}">
+              </div>
+            \`;
+          }
+        }
+
+        return \`
+          <div style="margin-bottom: 12px;">
+            <div class="test-form-label" style="margin-bottom: 8px;">\${displayName}</div>
+            <div style="padding-left: 12px; border-left: 2px solid rgba(254, 93, 38, 0.3);">
+              \${fieldsHtml}
+            </div>
+          </div>
+        \`;
+      }
+
+      // Fallback to JSON textarea for complex schemas
+      const defaultValue = field.innerSchema ? JSON.stringify(generateDefaultFromSchema(field.innerSchema), null, 2) : '{}';
+
+      return \`
+        <div class="test-form-group">
+          <label class="test-form-label" for="\${inputId}">\${displayName}</label>
+          <textarea class="test-form-textarea" id="\${inputId}" data-field="\${field.name}" data-type="userContext">\${defaultValue}</textarea>
+          <div class="test-form-hint">JSON object for user context simulation</div>
+        </div>
+      \`;
+    }
+
+    function getDefaultValueForType(prop) {
+      if (prop.type === 'string') {
+        return prop.format === 'email' ? 'test@example.com' : 'test-value';
+      }
+      if (prop.type === 'number' || prop.type === 'integer') {
+        return 1;
+      }
+      if (prop.type === 'boolean') {
+        return false;
+      }
+      return '';
+    }
+
+    function generateDefaultFromSchema(schema) {
+      if (!schema || schema.type !== 'object' || !schema.properties) {
+        return {};
+      }
+      const result = {};
+      for (const [key, prop] of Object.entries(schema.properties)) {
+        if (prop.type === 'string') {
+          result[key] = prop.format === 'email' ? 'test@example.com' : 'test-' + key;
+        } else if (prop.type === 'number' || prop.type === 'integer') {
+          result[key] = 1;
+        } else if (prop.type === 'boolean') {
+          result[key] = false;
+        }
+      }
+      return result;
+    }
+
+    async function loadFieldOptions(fieldName, sourceFunctionName) {
+      const selectEl = document.getElementById(\`test-input-\${fieldName}\`);
+      const btn = selectEl?.parentElement?.querySelector('.load-options-btn');
+      if (!selectEl || !btn) return;
+
+      btn.disabled = true;
+      btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10"/></svg> Loading...';
+
+      try {
+        const env = document.getElementById('testEnv')?.value || 'dev';
+        const accessGroups = getSelectedAccessGroups();
+
+        const res = await fetch(\`/api/function/\${sourceFunctionName}/options\`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ env, accessGroups }),
+        });
+        const data = await res.json();
+
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        const options = data.options || [];
+        loadedFieldOptions[fieldName] = options;
+
+        selectEl.innerHTML = '<option value="">Select...</option>' +
+          options.map(o => \`<option value="\${o.value}">\${o.label}</option>\`).join('');
+        selectEl.disabled = false;
+        btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Refresh';
+      } catch (err) {
+        selectEl.innerHTML = \`<option value="">Error: \${err.message}</option>\`;
+        btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Retry';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+    window.loadFieldOptions = loadFieldOptions;
+
+    // Helper function to get selected access groups from checkboxes
+    function getSelectedAccessGroups() {
+      const checkboxes = document.querySelectorAll('input[name="accessGroup"]:checked');
+      return Array.from(checkboxes).map(cb => cb.value);
+    }
+
+    // Debounced search for query-based fieldFrom fields
+    let fieldSearchTimeout = {};
+    async function searchFieldOptions(fieldName, sourceFunctionName, query) {
+      const selectEl = document.getElementById(\`test-input-\${fieldName}\`);
+      if (!selectEl) return;
+
+      // Debounce
+      if (fieldSearchTimeout[fieldName]) {
+        clearTimeout(fieldSearchTimeout[fieldName]);
+      }
+
+      if (!query || query.length < 2) {
+        selectEl.innerHTML = '<option value="">Type at least 2 characters...</option>';
+        return;
+      }
+
+      selectEl.innerHTML = '<option value="">Searching...</option>';
+
+      fieldSearchTimeout[fieldName] = setTimeout(async () => {
+        try {
+          const env = document.getElementById('testEnv')?.value || 'dev';
+          const accessGroups = getSelectedAccessGroups();
+
+          const res = await fetch(\`/api/function/\${sourceFunctionName}/options\`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ env, accessGroups, query }),
+          });
+          const data = await res.json();
+
+          if (data.error) {
+            throw new Error(data.error);
+          }
+
+          const options = data.options || [];
+          if (options.length === 0) {
+            selectEl.innerHTML = '<option value="">No results found</option>';
+          } else {
+            selectEl.innerHTML = '<option value="">Select...</option>' +
+              options.map(o => \`<option value="\${o.value}">\${o.label}</option>\`).join('');
+          }
+        } catch (err) {
+          selectEl.innerHTML = \`<option value="">Error: \${err.message}</option>\`;
+        }
+      }, 300);
+    }
+    window.searchFieldOptions = searchFieldOptions;
+
+    async function executeTest() {
+      const btn = document.getElementById('executeTestBtn');
+      const resultDiv = document.getElementById('testResult');
+      if (!btn || !resultDiv || !currentTestFunction) return;
+
+      btn.disabled = true;
+      btn.classList.add('loading');
+      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10"/></svg> Executing...';
+      resultDiv.innerHTML = '';
+
+      try {
+        const env = document.getElementById('testEnv')?.value || 'dev';
+        const accessGroups = getSelectedAccessGroups();
+
+        // Collect regular inputs
+        const inputs = {};
+        const mockUserContext = {};
+        const formInputs = document.querySelectorAll('[data-field]');
+
+        for (const input of formInputs) {
+          const fieldName = input.dataset.field;
+          const fieldType = input.dataset.type;
+          let value;
+
+          if (fieldType === 'boolean') {
+            value = input.checked;
+          } else if (fieldType === 'number') {
+            value = input.value ? Number(input.value) : undefined;
+          } else if (fieldType === 'json' || fieldType === 'userContext') {
+            try {
+              value = input.value.trim() ? JSON.parse(input.value) : undefined;
+            } catch {
+              throw new Error(\`Invalid JSON in field "\${fieldName}"\`);
+            }
+          } else {
+            value = input.value || undefined;
+          }
+
+          if (value !== undefined) {
+            if (fieldType === 'userContext') {
+              mockUserContext[fieldName] = value;
+            } else {
+              inputs[fieldName] = value;
+            }
+          }
+        }
+
+        // Collect individual user context fields (new format)
+        const userContextInputs = document.querySelectorAll('[data-usercontext-field]');
+        for (const input of userContextInputs) {
+          const fieldName = input.dataset.usercontextField;
+          const key = input.dataset.usercontextKey;
+
+          if (!mockUserContext[fieldName]) {
+            mockUserContext[fieldName] = {};
+          }
+
+          let value;
+          if (input.type === 'checkbox') {
+            value = input.checked;
+          } else if (input.type === 'number') {
+            value = input.value ? Number(input.value) : undefined;
+          } else {
+            value = input.value || undefined;
+          }
+
+          if (value !== undefined) {
+            mockUserContext[fieldName][key] = value;
+          }
+        }
+
+        const res = await fetch(\`/api/test/\${currentTestFunction}\`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ env, accessGroups, mockUserContext, inputs }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          currentResultData = data.result;
+          currentResultView = 'table';
+          resultDiv.innerHTML = renderSuccessResult(data.result, data.executionTime);
+        } else if (data.validationErrors) {
+          resultDiv.innerHTML = renderValidationErrors(data.validationErrors);
+        } else {
+          resultDiv.innerHTML = renderErrorResult(data.error, data.stack);
+        }
+      } catch (err) {
+        resultDiv.innerHTML = renderErrorResult(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove('loading');
+        btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Execute Function';
+      }
+    }
+    window.executeTest = executeTest;
+
+    function renderSuccessResult(result, executionTime) {
+      const isArray = Array.isArray(result);
+      const isObject = result && typeof result === 'object' && !isArray;
+      const isPrimitive = !isArray && !isObject;
+
+      let contentHtml = '';
+      let countInfo = '';
+
+      if (isArray && result.length > 0 && typeof result[0] === 'object') {
+        // Array of objects - render as table
+        countInfo = \`<span class="test-result-count">\${result.length} item\${result.length !== 1 ? 's' : ''}</span>\`;
+        contentHtml = \`
+          <div class="test-result-meta">
+            <span class="test-result-time">\${executionTime}ms</span>
+            \${countInfo}
+            <div class="test-result-view-toggle">
+              <button class="active" onclick="switchResultView('table')">Table</button>
+              <button onclick="switchResultView('json')">JSON</button>
+            </div>
+          </div>
+          <div id="resultContent">\${renderResultAsTable(result)}</div>
+        \`;
+      } else if (isObject) {
+        // Single object - render as key-value pairs
+        contentHtml = \`
+          <div class="test-result-meta">
+            <span class="test-result-time">\${executionTime}ms</span>
+            <div class="test-result-view-toggle">
+              <button class="active" onclick="switchResultView('table')">Details</button>
+              <button onclick="switchResultView('json')">JSON</button>
+            </div>
+          </div>
+          <div id="resultContent">\${renderResultAsKeyValue(result)}</div>
+        \`;
+      } else if (isArray) {
+        // Array of primitives
+        countInfo = \`<span class="test-result-count">\${result.length} item\${result.length !== 1 ? 's' : ''}</span>\`;
+        contentHtml = \`
+          <div class="test-result-meta">
+            <span class="test-result-time">\${executionTime}ms</span>
+            \${countInfo}
+          </div>
+          <div class="test-result-primitive">\${JSON.stringify(result, null, 2)}</div>
+        \`;
+      } else {
+        // Primitive value
+        contentHtml = \`
+          <div class="test-result-meta">
+            <span class="test-result-time">\${executionTime}ms</span>
+          </div>
+          <div class="test-result-primitive">\${String(result)}</div>
+        \`;
+      }
+
+      return \`
+        <div class="test-result success">
+          <div class="test-result-header success">
+            <span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 6px;">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Success
+            </span>
+          </div>
+          \${contentHtml}
+        </div>
+      \`;
+    }
+
+    function renderResultAsTable(data) {
+      if (!Array.isArray(data) || data.length === 0) {
+        return '<div class="test-result-primitive">[]</div>';
+      }
+
+      // Get all unique keys from all objects
+      const allKeys = new Set();
+      data.forEach(item => {
+        if (item && typeof item === 'object') {
+          Object.keys(item).forEach(key => allKeys.add(key));
+        }
+      });
+      const keys = Array.from(allKeys);
+
+      if (keys.length === 0) {
+        return '<div class="test-result-primitive">' + JSON.stringify(data, null, 2) + '</div>';
+      }
+
+      let html = '<table class="test-results-table"><thead><tr>';
+      keys.forEach(key => {
+        html += \`<th>\${formatFieldName(key)}</th>\`;
+      });
+      html += '</tr></thead><tbody>';
+
+      data.forEach(item => {
+        html += '<tr>';
+        keys.forEach(key => {
+          const value = item ? item[key] : undefined;
+          html += renderTableCell(value);
+        });
+        html += '</tr>';
+      });
+
+      html += '</tbody></table>';
+      return html;
+    }
+
+    function renderTableCell(value) {
+      if (value === null || value === undefined) {
+        return '<td class="cell-null">-</td>';
+      }
+      if (typeof value === 'boolean') {
+        return \`<td class="cell-boolean \${value}">\${value ? '✓' : '✗'}</td>\`;
+      }
+      if (typeof value === 'number') {
+        return \`<td class="cell-number">\${value}</td>\`;
+      }
+      if (typeof value === 'object') {
+        const str = JSON.stringify(value);
+        const display = str.length > 50 ? str.substring(0, 47) + '...' : str;
+        return \`<td class="cell-object" title="\${str.replace(/"/g, '&quot;')}">\${display}</td>\`;
+      }
+      return \`<td>\${String(value)}</td>\`;
+    }
+
+    function renderResultAsKeyValue(obj) {
+      if (!obj || typeof obj !== 'object') {
+        return '<div class="test-result-primitive">' + String(obj) + '</div>';
+      }
+
+      let html = '<dl class="test-results-kv">';
+      for (const [key, value] of Object.entries(obj)) {
+        const displayKey = formatFieldName(key);
+        let valueClass = '';
+        let displayValue = '';
+
+        if (value === null || value === undefined) {
+          valueClass = 'value-null';
+          displayValue = 'null';
+        } else if (typeof value === 'boolean') {
+          valueClass = 'value-boolean';
+          displayValue = value ? '✓ true' : '✗ false';
+        } else if (typeof value === 'number') {
+          valueClass = 'value-number';
+          displayValue = String(value);
+        } else if (typeof value === 'object') {
+          displayValue = JSON.stringify(value, null, 2);
+        } else {
+          displayValue = String(value);
+        }
+
+        html += \`<dt>\${displayKey}</dt><dd class="\${valueClass}">\${displayValue}</dd>\`;
+      }
+      html += '</dl>';
+      return html;
+    }
+
+    function switchResultView(view) {
+      currentResultView = view;
+      const contentDiv = document.getElementById('resultContent');
+      const buttons = document.querySelectorAll('.test-result-view-toggle button');
+
+      buttons.forEach(btn => {
+        btn.classList.toggle('active', btn.textContent.toLowerCase().includes(view === 'table' ? 'table' : 'json') || btn.textContent.toLowerCase().includes(view === 'table' ? 'detail' : 'json'));
+      });
+
+      if (!contentDiv || !currentResultData) return;
+
+      if (view === 'json') {
+        contentDiv.innerHTML = '<div class="test-result-content">' + JSON.stringify(currentResultData, null, 2) + '</div>';
+      } else {
+        if (Array.isArray(currentResultData) && currentResultData.length > 0 && typeof currentResultData[0] === 'object') {
+          contentDiv.innerHTML = renderResultAsTable(currentResultData);
+        } else if (typeof currentResultData === 'object' && currentResultData !== null) {
+          contentDiv.innerHTML = renderResultAsKeyValue(currentResultData);
+        }
+      }
+    }
+    window.switchResultView = switchResultView;
+
+    function renderValidationErrors(errors) {
+      return \`
+        <div class="test-result error">
+          <div class="test-result-header error">
+            <span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 6px;">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="15" y1="9" x2="9" y2="15"/>
+                <line x1="9" y1="9" x2="15" y2="15"/>
+              </svg>
+              Validation Failed
+            </span>
+          </div>
+          <ul class="test-validation-errors">
+            \${errors.map(e => \`
+              <li>
+                <svg class="test-validation-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <div>
+                  <span class="test-validation-path">\${e.path || 'root'}</span>
+                  <span class="test-validation-message">\${e.message}</span>
+                </div>
+              </li>
+            \`).join('')}
+          </ul>
+        </div>
+      \`;
+    }
+
+    function renderErrorResult(error, stack) {
+      let stackHtml = '';
+      if (stack) {
+        stackHtml = \`
+          <div class="test-error-stack">
+            <button class="test-error-stack-toggle" onclick="this.nextElementSibling.classList.toggle('visible'); this.textContent = this.nextElementSibling.classList.contains('visible') ? '▼ Hide Stack Trace' : '▶ Show Stack Trace'">
+              ▶ Show Stack Trace
+            </button>
+            <div class="test-error-stack-content">\${stack}</div>
+          </div>
+        \`;
+      }
+
+      return \`
+        <div class="test-result error">
+          <div class="test-result-header error">
+            <span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 6px;">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="15" y1="9" x2="9" y2="15"/>
+                <line x1="9" y1="9" x2="15" y2="15"/>
+              </svg>
+              Error
+            </span>
+          </div>
+          <div class="test-result-content" style="color: #c44536;">\${error || 'Unknown error'}</div>
+          \${stackHtml}
+        </div>
+      \`;
     }
 
     loadFontsAndInit();
