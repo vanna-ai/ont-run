@@ -37,6 +37,11 @@ export { fieldFrom, userContext } from "./config/categorical.js";
 export { startOnt } from "./server/start.js";
 export type { StartOntOptions, StartOntResult } from "./server/start.js";
 
+// Server utilities for custom server setup
+export { createApiApp } from "./server/api/index.js";
+export type { ApiServerOptions } from "./server/api/index.js";
+export { loadConfig, findConfigFile } from "./cli/utils/config-loader.js";
+
 // Types
 export type {
   OntologyConfig,

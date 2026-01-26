@@ -7,51 +7,296 @@ import consola from "consola";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Templates are bundled in the package
-const TEMPLATES_DIR = join(__dirname, "..", "..", "..", "templates");
+// ============================================================================
+// Template: src/index.ts (Server entry)
+// ============================================================================
+const serverTemplate = `import index from "./index.html";
+import { createApiApp, loadConfig } from "ont-run";
 
-export const initCommand = defineCommand({
-  meta: {
-    name: "init",
-    description: "Initialize a new Ontology project",
+const { config } = await loadConfig();
+const api = createApiApp({ config, env: process.env.NODE_ENV === "production" ? "prod" : "dev" });
+
+const server = Bun.serve({
+  port: Number(process.env.PORT) || 3000,
+  routes: {
+    "/health": req => api.fetch(req),
+    "/api": req => api.fetch(req),
+    "/api/*": req => api.fetch(req),
+    "/*": index,
   },
-  args: {
-    dir: {
-      type: "positional",
-      description: "Directory to initialize (default: current directory)",
-      default: ".",
-    },
-    force: {
-      type: "boolean",
-      description: "Overwrite existing files",
-      default: false,
-    },
-  },
-  async run({ args }) {
-    const targetDir = args.dir === "." ? process.cwd() : join(process.cwd(), args.dir);
+  development: process.env.NODE_ENV !== "production",
+});
 
-    consola.info(`Initializing Ontology project in ${targetDir}`);
+console.log(\`Server: http://localhost:\${server.port}\`);
+console.log(\`API: http://localhost:\${server.port}/api\`);
+`;
 
-    // Create directory if needed
-    if (!existsSync(targetDir)) {
-      mkdirSync(targetDir, { recursive: true });
-    }
+// ============================================================================
+// Template: src/index.html
+// ============================================================================
+const htmlTemplate = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My App</title>
+  <link rel="stylesheet" href="./index.css" />
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="./frontend.tsx"></script>
+</body>
+</html>
+`;
 
-    // Check for existing config
-    const configPath = join(targetDir, "ontology.config.ts");
-    if (existsSync(configPath) && !args.force) {
-      consola.error("ontology.config.ts already exists. Use --force to overwrite.");
-      process.exit(1);
-    }
+// ============================================================================
+// Template: src/index.css (TailwindCSS)
+// ============================================================================
+const cssTemplate = `@import "tailwindcss";
+`;
 
-    // Create resolvers directory
-    const resolversDir = join(targetDir, "resolvers");
-    if (!existsSync(resolversDir)) {
-      mkdirSync(resolversDir, { recursive: true });
-    }
+// ============================================================================
+// Template: src/frontend.tsx (React entry)
+// ============================================================================
+const frontendTemplate = `import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router";
+import { App } from "./App";
 
-    // Write ontology.config.ts
-    const configTemplate = `import { defineOntology, userContext } from 'ont-run';
+createRoot(document.getElementById("root")!).render(
+  <BrowserRouter>
+    <App />
+  </BrowserRouter>
+);
+`;
+
+// ============================================================================
+// Template: src/App.tsx
+// ============================================================================
+const appTemplate = `import { Routes, Route } from "react-router";
+import { Layout } from "./components/Layout";
+import { Home } from "./routes/home";
+import { About } from "./routes/about";
+
+export function App() {
+  return (
+    <Routes>
+      <Route element={<Layout />}>
+        <Route index element={<Home />} />
+        <Route path="about" element={<About />} />
+      </Route>
+    </Routes>
+  );
+}
+`;
+
+// ============================================================================
+// Template: src/components/Layout.tsx
+// ============================================================================
+const layoutTemplate = `import { Link, Outlet } from "react-router";
+
+export function Layout() {
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white shadow-sm border-b">
+        <div className="max-w-4xl mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            <Link to="/" className="text-xl font-semibold text-gray-900">
+              My App
+            </Link>
+            <div className="flex gap-4">
+              <Link to="/" className="text-gray-600 hover:text-gray-900">
+                Home
+              </Link>
+              <Link to="/about" className="text-gray-600 hover:text-gray-900">
+                About
+              </Link>
+            </div>
+          </div>
+        </div>
+      </nav>
+      <main className="max-w-4xl mx-auto px-4 py-8">
+        <Outlet />
+      </main>
+    </div>
+  );
+}
+`;
+
+// ============================================================================
+// Template: src/routes/home.tsx
+// ============================================================================
+const homeRouteTemplate = `import { useState, useEffect } from "react";
+
+interface HealthStatus {
+  status: string;
+  name: string;
+  env: string;
+}
+
+export function Home() {
+  const [health, setHealth] = useState<HealthStatus | null>(null);
+
+  useEffect(() => {
+    fetch("/health")
+      .then(res => res.json())
+      .then(setHealth)
+      .catch(console.error);
+  }, []);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Welcome</h1>
+        <p className="mt-2 text-gray-600">
+          Your full-stack Bun + React app is running.
+        </p>
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">API Health</h2>
+        {health ? (
+          <div className="space-y-2 text-sm">
+            <p>
+              <span className="text-gray-500">Status:</span>{" "}
+              <span className="text-green-600 font-medium">{health.status}</span>
+            </p>
+            <p>
+              <span className="text-gray-500">API Name:</span>{" "}
+              <span className="font-medium">{health.name}</span>
+            </p>
+            <p>
+              <span className="text-gray-500">Environment:</span>{" "}
+              <span className="font-medium">{health.env}</span>
+            </p>
+          </div>
+        ) : (
+          <p className="text-gray-500">Loading...</p>
+        )}
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Links</h2>
+        <ul className="space-y-2 text-sm">
+          <li>
+            <a href="/api" className="text-blue-600 hover:underline">
+              /api
+            </a>
+            <span className="text-gray-500"> - API introspection</span>
+          </li>
+          <li>
+            <a href="/health" className="text-blue-600 hover:underline">
+              /health
+            </a>
+            <span className="text-gray-500"> - Health check endpoint</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+`;
+
+// ============================================================================
+// Template: src/routes/about.tsx
+// ============================================================================
+const aboutRouteTemplate = `export function About() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">About</h1>
+        <p className="mt-2 text-gray-600">
+          This is an example route to demonstrate React Router.
+        </p>
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Stack</h2>
+        <ul className="space-y-2 text-sm text-gray-600">
+          <li><strong>Runtime:</strong> Bun</li>
+          <li><strong>Frontend:</strong> React 19 + React Router 7</li>
+          <li><strong>Styling:</strong> TailwindCSS 4</li>
+          <li><strong>API:</strong> Ontology (ont-run)</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+`;
+
+// ============================================================================
+// Template: build.ts (Production build script)
+// ============================================================================
+const buildTemplate = `import { $ } from "bun";
+
+console.log("Building for production...");
+
+// Build frontend assets
+const result = await Bun.build({
+  entrypoints: ["./src/frontend.tsx"],
+  outdir: "./dist",
+  minify: true,
+  sourcemap: "external",
+  plugins: [
+    // @ts-ignore - bun-plugin-tailwind types
+    (await import("bun-plugin-tailwind")).default(),
+  ],
+});
+
+if (!result.success) {
+  console.error("Build failed:");
+  for (const log of result.logs) {
+    console.error(log);
+  }
+  process.exit(1);
+}
+
+// Copy HTML and update paths for production
+const html = await Bun.file("./src/index.html").text();
+const prodHtml = html
+  .replace('./index.css', '/index.css')
+  .replace('./frontend.tsx', '/frontend.js');
+await Bun.write("./dist/index.html", prodHtml);
+
+console.log("Build complete! Output in ./dist");
+`;
+
+// ============================================================================
+// Template: bunfig.toml
+// ============================================================================
+const bunfigTemplate = `[serve.static]
+plugins = ["bun-plugin-tailwind"]
+`;
+
+// ============================================================================
+// Template: tsconfig.json
+// ============================================================================
+const tsconfigTemplate = `{
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noPropertyAccessFromIndexSignature": false,
+    "types": ["bun"]
+  }
+}
+`;
+
+// ============================================================================
+// Template: ontology.config.ts
+// ============================================================================
+const configTemplate = `import { defineOntology, userContext } from 'ont-run';
 import { z } from 'zod';
 
 // Import resolver functions - TypeScript enforces return types match outputs
@@ -137,11 +382,10 @@ export default defineOntology({
 });
 `;
 
-    writeFileSync(configPath, configTemplate);
-    consola.success("Created ontology.config.ts");
-
-    // Write example resolvers
-    const healthCheckResolver = `import type { ResolverContext } from 'ont-run';
+// ============================================================================
+// Template: resolvers/healthCheck.ts
+// ============================================================================
+const healthCheckResolver = `import type { ResolverContext } from 'ont-run';
 
 export default async function healthCheck(ctx: ResolverContext) {
   ctx.logger.info('Health check called');
@@ -154,7 +398,10 @@ export default async function healthCheck(ctx: ResolverContext) {
 }
 `;
 
-    const getUserResolver = `import type { ResolverContext } from 'ont-run';
+// ============================================================================
+// Template: resolvers/getUser.ts
+// ============================================================================
+const getUserResolver = `import type { ResolverContext } from 'ont-run';
 
 interface GetUserArgs {
   userId: string;
@@ -185,7 +432,10 @@ export default async function getUser(ctx: ResolverContext, args: GetUserArgs) {
 }
 `;
 
-    const deleteUserResolver = `import type { ResolverContext } from 'ont-run';
+// ============================================================================
+// Template: resolvers/deleteUser.ts
+// ============================================================================
+const deleteUserResolver = `import type { ResolverContext } from 'ont-run';
 
 interface DeleteUserArgs {
   userId: string;
@@ -205,21 +455,90 @@ export default async function deleteUser(ctx: ResolverContext, args: DeleteUserA
 }
 `;
 
-    writeFileSync(join(resolversDir, "healthCheck.ts"), healthCheckResolver);
-    writeFileSync(join(resolversDir, "getUser.ts"), getUserResolver);
-    writeFileSync(join(resolversDir, "deleteUser.ts"), deleteUserResolver);
-    consola.success("Created example resolvers in resolvers/");
+export const initCommand = defineCommand({
+  meta: {
+    name: "init",
+    description: "Initialize a new full-stack Ontology project with Bun + React",
+  },
+  args: {
+    dir: {
+      type: "positional",
+      description: "Directory to initialize (default: current directory)",
+      default: ".",
+    },
+    force: {
+      type: "boolean",
+      description: "Overwrite existing files",
+      default: false,
+    },
+  },
+  async run({ args }) {
+    const targetDir = args.dir === "." ? process.cwd() : join(process.cwd(), args.dir);
 
-    // Write server.ts
-    const serverTemplate = `import { startOnt } from 'ont-run';
+    consola.info(`Initializing full-stack Ontology project in ${targetDir}`);
 
-await startOnt();
-`;
+    // Create directory if needed
+    if (!existsSync(targetDir)) {
+      mkdirSync(targetDir, { recursive: true });
+    }
 
-    writeFileSync(join(targetDir, "server.ts"), serverTemplate);
-    consola.success("Created server.ts");
+    // Check for existing config
+    const configPath = join(targetDir, "ontology.config.ts");
+    if (existsSync(configPath) && !args.force) {
+      consola.error("ontology.config.ts already exists. Use --force to overwrite.");
+      process.exit(1);
+    }
 
-    // Write package.json
+    // Create directory structure
+    const dirs = [
+      "src",
+      "src/routes",
+      "src/components",
+      "resolvers",
+    ];
+
+    for (const dir of dirs) {
+      const dirPath = join(targetDir, dir);
+      if (!existsSync(dirPath)) {
+        mkdirSync(dirPath, { recursive: true });
+      }
+    }
+
+    // Write all files
+    const files: Array<[string, string]> = [
+      // Root files
+      ["ontology.config.ts", configTemplate],
+      ["build.ts", buildTemplate],
+      ["bunfig.toml", bunfigTemplate],
+      ["tsconfig.json", tsconfigTemplate],
+
+      // src/ files
+      ["src/index.ts", serverTemplate],
+      ["src/index.html", htmlTemplate],
+      ["src/index.css", cssTemplate],
+      ["src/frontend.tsx", frontendTemplate],
+      ["src/App.tsx", appTemplate],
+
+      // src/components/
+      ["src/components/Layout.tsx", layoutTemplate],
+
+      // src/routes/
+      ["src/routes/home.tsx", homeRouteTemplate],
+      ["src/routes/about.tsx", aboutRouteTemplate],
+
+      // resolvers/
+      ["resolvers/healthCheck.ts", healthCheckResolver],
+      ["resolvers/getUser.ts", getUserResolver],
+      ["resolvers/deleteUser.ts", deleteUserResolver],
+    ];
+
+    for (const [filePath, content] of files) {
+      writeFileSync(join(targetDir, filePath), content);
+    }
+
+    consola.success("Created project files");
+
+    // Write/update package.json
     const packageJsonPath = join(targetDir, "package.json");
     let packageJson: Record<string, unknown> = {};
 
@@ -231,33 +550,45 @@ await startOnt();
       }
     }
 
-    // Merge in our scripts and dependencies
+    // Set package.json values
     packageJson.type = "module";
     packageJson.scripts = {
       ...(packageJson.scripts as Record<string, string> || {}),
-      dev: "NODE_ENV=development bun run server.ts",
-      start: "NODE_ENV=production bun run server.ts",
+      dev: "bun --hot src/index.ts",
+      build: "bun run build.ts",
+      start: "NODE_ENV=production bun src/index.ts",
       review: "bunx ont-run review",
     };
     packageJson.dependencies = {
       ...(packageJson.dependencies as Record<string, string> || {}),
       "ont-run": "latest",
+      react: "^19.0.0",
+      "react-dom": "^19.0.0",
+      "react-router": "^7.0.0",
       zod: "^4.0.0",
+    };
+    packageJson.devDependencies = {
+      ...(packageJson.devDependencies as Record<string, string> || {}),
+      "@types/bun": "latest",
+      "@types/react": "^19",
+      "@types/react-dom": "^19",
+      "bun-plugin-tailwind": "^0.1.2",
+      tailwindcss: "^4.1.11",
     };
 
     writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
-    consola.success("Updated package.json with scripts and dependencies");
+    consola.success("Updated package.json");
 
     // Instructions
     console.log("\n");
     consola.box(
-      "Ontology project initialized!\n\n" +
+      "Full-stack Ontology project initialized!\n\n" +
         "Next steps:\n" +
         "  1. Run `bun install` to install dependencies\n" +
-        "  2. Review ontology.config.ts and customize\n" +
-        "  3. Run `bun run review` to approve the initial ontology\n" +
-        "  4. Run `bun run dev` to start the servers\n\n" +
-        "Your API will be available at http://localhost:3000"
+        "  2. Run `bun run review` to approve the initial ontology\n" +
+        "  3. Run `bun run dev` to start the dev server\n\n" +
+        "Your app will be available at http://localhost:3000\n" +
+        "API endpoints at http://localhost:3000/api"
     );
   },
 });

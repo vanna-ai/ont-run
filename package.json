@@ -1,6 +1,6 @@
 {
   "name": "ont-run",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "Ontology-enforced API framework for AI coding agents",
   "type": "module",
   "bin": {
@@ -11,6 +11,14 @@
       "types": "./dist/src/index.d.ts",
       "bun": "./src/index.ts",
       "default": "./dist/index.js"
+    },
+    "./server": {
+      "bun": "./src/server/api/index.ts",
+      "default": "./dist/server/api/index.js"
+    },
+    "./config": {
+      "bun": "./src/cli/utils/config-loader.ts",
+      "default": "./dist/cli/utils/config-loader.js"
     }
   },
   "files": [
