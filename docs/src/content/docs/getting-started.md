@@ -7,14 +7,13 @@ description: Get up and running with ont-run in 5 minutes
 
 ```bash
 # Using bun (recommended)
-bun add ont-run
+bunx ont-run init my-api
 
 # Using npm
-npm install ont-run
-
-# Using pnpm
-pnpm add ont-run
+npx ont-run init my-api
 ```
+
+This creates a new project with the ont-run framework configured. Then `cd my-api` to enter your project.
 
 ## Create your ontology
 
@@ -142,7 +141,8 @@ Both servers are built on [Hono](https://hono.dev/), a lightweight web framework
 When you modify your ontology (add functions, change access), you need to approve the changes:
 
 ```bash
-npx ont-run review
+bunx ont-run review
+# or: npx ont-run review
 ```
 
 This opens an interactive review UI where you can see exactly what changed and approve or reject.

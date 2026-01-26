@@ -70,7 +70,7 @@ WARN  Ontology has changed:
       ~ assignTicket
         Access: [admin] -> [admin, public]
 
-WARN  Run `npx ont-run review` to approve these changes.
+WARN  Run `bunx ont-run review` to approve these changes.
 ```
 
 **Why not just prompts?** The ontology is the source of truth. The framework won't run if it changes without human review.
@@ -78,26 +78,31 @@ WARN  Run `npx ont-run review` to approve these changes.
 ## Installation
 
 ```bash
-npm install ont-run
-# or
-bun add ont-run
+# Using bun (recommended)
+bunx ont-run init my-api
+
+# Using npm
+npx ont-run init my-api
 ```
 
-Works with both Node.js and Bun.
+This creates a new project with the ont-run framework configured.
 
 ## Quick Start
 
 ### 1. Initialize
 
 ```bash
-npx ont-run init my-api
+bunx ont-run init my-api
+# or: npx ont-run init my-api
+
 cd my-api
 ```
 
 ### 2. Review the initial ontology
 
 ```bash
-npx ont-run review
+bunx ont-run review
+# or: npx ont-run review
 ```
 
 Opens a browser showing all functions and access groups. Click **Approve** to generate `ont.lock`.
@@ -274,8 +279,8 @@ export default async function editPost(
 ## CLI Commands
 
 ```bash
-npx ont-run init [dir]     # Initialize a new project
-npx ont-run review         # Review and approve ontology changes
+bunx ont-run init [dir]    # Initialize a new project (or: npx ont-run init [dir])
+bunx ont-run review        # Review and approve ontology changes (or: npx ont-run review)
 ```
 
 ## API Endpoints
