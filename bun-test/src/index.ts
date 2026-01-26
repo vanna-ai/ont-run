@@ -1,11 +1,27 @@
 import { serve } from "bun";
 import index from "./index.html";
+import { handleLogin, handleLogout, handleMe } from "./auth/routes";
+import { handleChat } from "./chat/handler";
 
 const server = serve({
   routes: {
-    // Serve index.html for all unmatched routes.
-    "/*": index,
+    // Auth routes
+    "/api/auth/login": {
+      POST: handleLogin,
+    },
+    "/api/auth/logout": {
+      POST: handleLogout,
+    },
+    "/api/auth/me": {
+      GET: handleMe,
+    },
 
+    // Chat route (SSE streaming)
+    "/api/chat": {
+      POST: handleChat,
+    },
+
+    // API routes
     "/api/hello": {
       async GET(req) {
         return Response.json({
@@ -21,12 +37,15 @@ const server = serve({
       },
     },
 
-    "/api/hello/:name": async req => {
+    "/api/hello/:name": async (req) => {
       const name = req.params.name;
       return Response.json({
         message: `Hello, ${name}!`,
       });
     },
+
+    // Serve index.html for all unmatched routes.
+    "/*": index,
   },
 
   development: process.env.NODE_ENV !== "production" && {
@@ -38,4 +57,4 @@ const server = serve({
   },
 });
 
-console.log(`🚀 Server running at ${server.url}`);
+console.log(`Server running at ${server.url}`);

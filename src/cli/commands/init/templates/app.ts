@@ -18,16 +18,26 @@ import { Layout } from "./components/Layout";
 import { Home } from "./routes/home";
 import { Dashboard } from "./routes/dashboard";
 import { About } from "./routes/about";
+import { AuthProvider } from "./context/AuthContext";
+import { ChatProvider } from "./context/ChatContext";
+import { FloatingChat } from "./components/FloatingChat";
 
 export function App() {
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route index element={<Home />} />
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="about" element={<About />} />
-      </Route>
-    </Routes>
+    <AuthProvider>
+      <ChatProvider>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route index element={<Home />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="about" element={<About />} />
+          </Route>
+        </Routes>
+
+        {/* Floating Chat Window */}
+        <FloatingChat />
+      </ChatProvider>
+    </AuthProvider>
   );
 }
 `;

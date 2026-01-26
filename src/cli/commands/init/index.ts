@@ -26,6 +26,16 @@ import {
   deleteUserResolver,
   skillTemplate,
   gitignoreTemplate,
+  // Chat templates
+  authSessionTemplate,
+  authRoutesTemplate,
+  mcpClientTemplate,
+  chatHandlerTemplate,
+  chatTypesTemplate,
+  authContextTemplate,
+  chatContextTemplate,
+  loginScreenTemplate,
+  floatingChatTemplate,
 } from "./templates/index.js";
 
 export const initCommand = defineCommand({
@@ -65,6 +75,10 @@ export const initCommand = defineCommand({
     // Create directory structure
     const dirs = [
       "src",
+      "src/auth",
+      "src/chat",
+      "src/types",
+      "src/context",
       "src/routes",
       "src/components",
       "resolvers",
@@ -94,11 +108,28 @@ export const initCommand = defineCommand({
       ["src/frontend.tsx", frontendTemplate],
       ["src/App.tsx", appTemplate],
 
+      // src/auth/
+      ["src/auth/session.ts", authSessionTemplate],
+      ["src/auth/routes.ts", authRoutesTemplate],
+
+      // src/chat/
+      ["src/chat/mcp-client.ts", mcpClientTemplate],
+      ["src/chat/handler.ts", chatHandlerTemplate],
+
+      // src/types/
+      ["src/types/chat.ts", chatTypesTemplate],
+
+      // src/context/
+      ["src/context/AuthContext.tsx", authContextTemplate],
+      ["src/context/ChatContext.tsx", chatContextTemplate],
+
       // src/components/
       ["src/components/Layout.tsx", layoutTemplate],
       ["src/components/VannaButton.tsx", vannaButtonTemplate],
       ["src/components/VannaCard.tsx", vannaCardTemplate],
       ["src/components/StatsCard.tsx", statsCardTemplate],
+      ["src/components/LoginScreen.tsx", loginScreenTemplate],
+      ["src/components/FloatingChat.tsx", floatingChatTemplate],
 
       // src/routes/
       ["src/routes/home.tsx", homeRouteTemplate],
@@ -143,6 +174,7 @@ export const initCommand = defineCommand({
     };
     packageJson.dependencies = {
       ...(packageJson.dependencies as Record<string, string> || {}),
+      "@anthropic-ai/sdk": "^0.52.0",
       "ont-run": "latest",
       react: "^19.0.0",
       "react-dom": "^19.0.0",
@@ -172,7 +204,11 @@ export const initCommand = defineCommand({
         "  2. Run `bun run review` to approve the initial ontology\n" +
         "  3. Run `bun run dev` to start the dev server\n\n" +
         "Your app will be available at http://localhost:3000\n" +
-        "API endpoints at http://localhost:3000/api"
+        "API endpoints at http://localhost:3000/api\n\n" +
+        "Chat UI:\n" +
+        "  - Click the chat button (bottom-right) to open\n" +
+        "  - Demo accounts: admin@example.com, support@example.com, user@example.com\n" +
+        "  - Passwords: admin123, support123, user123"
     );
   },
 });

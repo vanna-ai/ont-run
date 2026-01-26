@@ -16,3 +16,16 @@ export { homeRouteTemplate, dashboardRouteTemplate, aboutRouteTemplate } from ".
 export { healthCheckResolver, getUserResolver, deleteUserResolver } from "./resolvers.js";
 export { skillTemplate } from "./skills.js";
 export { gitignoreTemplate } from "./gitignore.js";
+
+// Chat templates
+export {
+  authSessionTemplate,
+  authRoutesTemplate,
+  mcpClientTemplate,
+  chatHandlerTemplate,
+  chatTypesTemplate,
+  authContextTemplate,
+  chatContextTemplate,
+  loginScreenTemplate,
+  floatingChatTemplate,
+} from "./chat.js";

@@ -9,7 +9,9 @@
     "build": "bun run build.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.52.0",
     "bun-plugin-tailwind": "^0.1.2",
+    "lucide-react": "^0.511.0",
     "react": "^19",
     "react-dom": "^19",
     "tailwindcss": "^4.1.11"

@@ -4,6 +4,8 @@
 
 export const serverTemplate = `import index from "./index.html";
 import { createApiApp, loadConfig } from "ont-run";
+import { handleLogin, handleLogout, handleMe } from "./auth/routes";
+import { handleChat } from "./chat/handler";
 
 const { config } = await loadConfig();
 const api = createApiApp({ config, env: process.env.NODE_ENV === "production" ? "prod" : "dev" });
@@ -11,9 +13,28 @@ const api = createApiApp({ config, env: process.env.NODE_ENV === "production" ? 
 const server = Bun.serve({
   port: Number(process.env.PORT) || 3000,
   routes: {
+    // Auth routes
+    "/api/auth/login": {
+      POST: handleLogin,
+    },
+    "/api/auth/logout": {
+      POST: handleLogout,
+    },
+    "/api/auth/me": {
+      GET: handleMe,
+    },
+
+    // Chat route (SSE streaming)
+    "/api/chat": {
+      POST: handleChat,
+    },
+
+    // Ontology API routes
     "/health": req => api.fetch(req),
     "/api": req => api.fetch(req),
     "/api/*": req => api.fetch(req),
+
+    // Serve frontend for all other routes
     "/*": index,
   },
   development: process.env.NODE_ENV !== "production",
