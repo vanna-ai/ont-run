@@ -84,6 +84,16 @@ export function createApiRoutes(
         // Execute resolver
         try {
           const result = await fn.resolver(resolverContext, args);
+
+          // Validate output against schema (dev mode warning)
+          const validated = fn.outputs.safeParse(result);
+          if (!validated.success) {
+            console.warn(
+              `[ont-run] Resolver "${name}" returned value that doesn't match outputs schema:`,
+              validated.error.issues
+            );
+          }
+
           return c.json(result);
         } catch (error) {
           console.error(`Error in resolver ${name}:`, error);

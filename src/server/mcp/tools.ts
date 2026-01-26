@@ -172,18 +172,16 @@ export function generateMcpTools(config: OntologyConfig): McpTool[] {
       inputSchema = { type: "object", properties: {} };
     }
 
-    // Convert output schema if present
+    // Convert output schema to JSON Schema for MCP
     let outputSchema: Record<string, unknown> | undefined;
-    if (fn.outputs) {
-      try {
-        outputSchema = z.toJSONSchema(fn.outputs, {
-          reused: "inline",
-          unrepresentable: "any",
-        }) as Record<string, unknown>;
-        delete outputSchema.$schema;
-      } catch {
-        outputSchema = undefined;
-      }
+    try {
+      outputSchema = z.toJSONSchema(fn.outputs, {
+        reused: "inline",
+        unrepresentable: "any",
+      }) as Record<string, unknown>;
+      delete outputSchema.$schema;
+    } catch {
+      outputSchema = undefined;
     }
 
     // Extract field references
@@ -276,6 +274,17 @@ export function createToolExecutor(
     };
 
     // Execute resolver
-    return fn.resolver(resolverContext, parsed.data);
+    const result = await fn.resolver(resolverContext, parsed.data);
+
+    // Validate output against schema (dev mode warning)
+    const validated = fn.outputs.safeParse(result);
+    if (!validated.success) {
+      logger.warn(
+        `Resolver "${toolName}" returned value that doesn't match outputs schema:`,
+        validated.error.issues
+      );
+    }
+
+    return result;
   };
 }

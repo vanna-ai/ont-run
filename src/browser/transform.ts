@@ -194,7 +194,7 @@ export function transformToGraphData(config: OntologyConfig): GraphData {
       description: fn.description,
       metadata: {
         inputs: safeZodToJsonSchema(fn.inputs),
-        outputs: fn.outputs ? safeZodToJsonSchema(fn.outputs) : undefined,
+        outputs: safeZodToJsonSchema(fn.outputs),
         usesUserContext: usesUserContext || undefined,
       },
     });

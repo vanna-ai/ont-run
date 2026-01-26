@@ -119,18 +119,16 @@ export function extractOntology(config: OntologyConfig): OntologySnapshot {
       inputsSchema = { type: "unknown" };
     }
 
-    // Convert outputs schema if present
-    let outputsSchema: Record<string, unknown> | undefined;
-    if (fn.outputs) {
-      try {
-        outputsSchema = z.toJSONSchema(fn.outputs, {
-          reused: "inline",
-          unrepresentable: "any",
-        }) as Record<string, unknown>;
-        delete outputsSchema.$schema;
-      } catch {
-        outputsSchema = { type: "unknown" };
-      }
+    // Convert outputs schema to JSON for hashing
+    let outputsSchema: Record<string, unknown>;
+    try {
+      outputsSchema = z.toJSONSchema(fn.outputs, {
+        reused: "inline",
+        unrepresentable: "any",
+      }) as Record<string, unknown>;
+      delete outputsSchema.$schema;
+    } catch {
+      outputsSchema = { type: "unknown" };
     }
 
     // Extract field references

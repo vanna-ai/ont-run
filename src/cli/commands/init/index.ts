@@ -68,7 +68,7 @@ export const initCommand = defineCommand({
       "src/routes",
       "src/components",
       "resolvers",
-      ".claude/skills/init",
+      ".claude/skills/ont-run",
     ];
 
     for (const dir of dirs) {
@@ -111,7 +111,7 @@ export const initCommand = defineCommand({
       ["resolvers/deleteUser.ts", deleteUserResolver],
 
       // .claude/skills/
-      [".claude/skills/init/SKILL.md", skillTemplate],
+      [".claude/skills/ont-run/SKILL.md", skillTemplate],
     ];
 
     for (const [filePath, content] of files) {
@@ -140,6 +140,7 @@ export const initCommand = defineCommand({
       build: "bun run build.ts",
       start: "NODE_ENV=production bun src/index.ts",
       review: "bunx ont-run review",
+      typecheck: "tsc --noEmit",
     };
     packageJson.dependencies = {
       ...(packageJson.dependencies as Record<string, string> || {}),
@@ -158,6 +159,7 @@ export const initCommand = defineCommand({
       "@types/react-dom": "^19",
       "bun-plugin-tailwind": "^0.1.2",
       tailwindcss: "^4.1.11",
+      typescript: "^5.5.0",
     };
 
     writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));

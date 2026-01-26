@@ -4,7 +4,13 @@
 
 export const healthCheckResolver = `import type { ResolverContext } from 'ont-run';
 
-export default async function healthCheck(ctx: ResolverContext) {
+interface HealthCheckResult {
+  status: string;
+  env: string;
+  timestamp: string;
+}
+
+export default async function healthCheck(ctx: ResolverContext): Promise<HealthCheckResult> {
   ctx.logger.info('Health check called');
 
   return {
@@ -25,7 +31,14 @@ interface GetUserArgs {
   };
 }
 
-export default async function getUser(ctx: ResolverContext, args: GetUserArgs) {
+interface GetUserResult {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+}
+
+export default async function getUser(ctx: ResolverContext, args: GetUserArgs): Promise<GetUserResult> {
   ctx.logger.info(\`Getting user: \${args.userId}\`);
   ctx.logger.info(\`Requested by: \${args.currentUser.email}\`);
 
@@ -53,7 +66,13 @@ interface DeleteUserArgs {
   reason?: string;
 }
 
-export default async function deleteUser(ctx: ResolverContext, args: DeleteUserArgs) {
+interface DeleteUserResult {
+  success: boolean;
+  deletedUserId: string;
+  deletedAt: string;
+}
+
+export default async function deleteUser(ctx: ResolverContext, args: DeleteUserArgs): Promise<DeleteUserResult> {
   ctx.logger.warn(\`Deleting user: \${args.userId}, reason: \${args.reason || 'none'}\`);
 
   // This is where you'd delete from your database

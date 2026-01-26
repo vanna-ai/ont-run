@@ -3,81 +3,13 @@
 // ============================================================================
 
 export const skillTemplate = `---
-name: init
-description: Initialize a new full-stack Ontology project with Bun + React. Use when setting up a new project, explaining the init command, or helping users get started with ont-run.
+name: ont-run
+description: Reference for ont-run API configuration and patterns. Use when modifying ontology.config.ts, creating resolvers, or working with the Vanna Design System.
 ---
 
-# \`bunx ont-run init\` Command
+# ont-run Reference
 
-Initialize a new full-stack Ontology project with Bun + React.
-
-## Usage
-
-\`\`\`bash
-bunx ont-run init [dir] [--force]
-\`\`\`
-
-**Arguments:**
-- \`[dir]\` - Directory to initialize (default: current directory)
-- \`--force\` - Overwrite existing files
-
-## What Gets Created
-
-\`\`\`
-project/
-├── ontology.config.ts    # API configuration
-├── build.ts              # Production build script
-├── bunfig.toml           # Bun configuration
-├── tsconfig.json         # TypeScript configuration
-├── package.json          # Dependencies and scripts
-├── src/
-│   ├── index.ts          # Server entry point
-│   ├── index.html        # HTML template
-│   ├── index.css         # Vanna Design System (Tailwind)
-│   ├── frontend.tsx      # React entry point
-│   ├── App.tsx           # React app with routing
-│   ├── components/
-│   │   ├── Layout.tsx    # Glass-morphism nav
-│   │   ├── VannaButton.tsx # Button variants
-│   │   ├── VannaCard.tsx   # Card component
-│   │   └── StatsCard.tsx   # Stats display
-│   └── routes/
-│       ├── home.tsx      # Home page with hero
-│       ├── dashboard.tsx # Dashboard with charts
-│       └── about.tsx     # About page
-├── resolvers/
-│   ├── healthCheck.ts    # Health check resolver
-│   ├── getUser.ts        # Get user resolver (with userContext)
-│   └── deleteUser.ts     # Delete user resolver
-└── .claude/
-    └── skills/
-        └── init/
-            └── SKILL.md  # This skill file
-\`\`\`
-
-## Vanna Design System
-
-The generated project includes the Vanna Design System with:
-
-### Colors
-- **Navy** (#023d60) - Primary text and backgrounds
-- **Cream** (#e7e1cf) - Page background
-- **Teal** (#15a8a8) - Primary accent, buttons
-- **Orange** (#fe5d26) - Secondary accent
-- **Magenta** (#bf1363) - Alerts, negative trends
-
-### Typography
-- **Roboto Slab** - Headlines (serif)
-- **Space Grotesk** - Body text (sans)
-- **Space Mono** - Code blocks (mono)
-
-### Components
-- \`VannaButton\` - 4 variants (primary/secondary/outline/ghost), 3 sizes
-- \`VannaCard\` - Cards with teal shadows
-- \`StatsCard\` - Dashboard stat cards with trend indicators
-- \`Layout\` - Glass-morphism navigation with lucide icons
-
-## Comprehensive ontology.config.ts Example
+## ontology.config.ts Configuration
 
 This example demonstrates ALL configuration features:
 
@@ -275,31 +207,40 @@ export default async function myResolver(ctx: ResolverContext, args: MyArgs) {
 }
 \`\`\`
 
-## Next Steps After Init
+## Vanna Design System
 
-1. **Install dependencies:**
-   \`\`\`bash
-   bun install
-   \`\`\`
+### Colors
+- **Navy** (#023d60) - Primary text and backgrounds
+- **Cream** (#e7e1cf) - Page background
+- **Teal** (#15a8a8) - Primary accent, buttons
+- **Orange** (#fe5d26) - Secondary accent
+- **Magenta** (#bf1363) - Alerts, negative trends
 
-2. **Review and approve the ontology:**
-   \`\`\`bash
-   bun run review
-   \`\`\`
+### Typography
+- **Roboto Slab** - Headlines (serif)
+- **Space Grotesk** - Body text (sans)
+- **Space Mono** - Code blocks (mono)
 
-3. **Start development server:**
-   \`\`\`bash
-   bun run dev
-   \`\`\`
+### Components
+- \`VannaButton\` - 4 variants (primary/secondary/outline/ghost), 3 sizes
+- \`VannaCard\` - Cards with teal shadows
+- \`StatsCard\` - Dashboard stat cards with trend indicators
+- \`Layout\` - Glass-morphism navigation with lucide icons
 
-4. **Access your app:**
-   - Frontend: http://localhost:3000
-   - API: http://localhost:3000/api
-   - Health: http://localhost:3000/health
+## Project Structure
 
-5. **Build for production:**
-   \`\`\`bash
-   bun run build
-   bun run start
-   \`\`\`
+\`\`\`
+project/
+├── ontology.config.ts    # API configuration
+├── build.ts              # Production build script
+├── src/
+│   ├── index.ts          # Server entry point
+│   ├── index.html        # HTML template
+│   ├── index.css         # Vanna Design System (Tailwind)
+│   ├── frontend.tsx      # React entry point
+│   ├── App.tsx           # React app with routing
+│   ├── components/       # Vanna UI components
+│   └── routes/           # Page components
+└── resolvers/            # API resolver functions
+\`\`\`
 `;

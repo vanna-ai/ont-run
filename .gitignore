@@ -5,3 +5,4 @@ dist/
 
 # Test project (for development only)
 test-project/
+tmp/

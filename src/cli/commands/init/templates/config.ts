@@ -54,6 +54,11 @@ export default defineOntology({
       access: ['public', 'support', 'admin'],
       entities: [],
       inputs: z.object({}),
+      outputs: z.object({
+        status: z.string(),
+        env: z.string(),
+        timestamp: z.string(),
+      }),
       resolver: healthCheck,
     },
 
@@ -70,6 +75,12 @@ export default defineOntology({
           email: z.string(),
         })),
       }),
+      outputs: z.object({
+        id: z.string(),
+        name: z.string(),
+        email: z.string(),
+        createdAt: z.string(),
+      }),
       resolver: getUser,
     },
 
@@ -81,6 +92,11 @@ export default defineOntology({
       inputs: z.object({
         userId: z.string().uuid(),
         reason: z.string().optional(),
+      }),
+      outputs: z.object({
+        success: z.boolean(),
+        deletedUserId: z.string(),
+        deletedAt: z.string(),
       }),
       resolver: deleteUser,
     },

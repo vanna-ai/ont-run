@@ -68,11 +68,9 @@ export const FunctionDefinitionSchema = z.object({
   inputs: z.custom<z.ZodType>((val) => validateZodSchema(val, "inputs"), {
     message: "inputs must be a Zod 4 schema",
   }),
-  outputs: z
-    .custom<z.ZodType>((val) => validateZodSchema(val, "outputs"), {
-      message: "outputs must be a Zod 4 schema",
-    })
-    .optional(),
+  outputs: z.custom<z.ZodType>((val) => validateZodSchema(val, "outputs"), {
+    message: "outputs must be a Zod 4 schema",
+  }),
   resolver: z.custom<(...args: unknown[]) => unknown>(isFunction, {
     message: "resolver must be a function",
   }),
@@ -223,30 +221,6 @@ export function validateFieldFromReferences(
         );
       }
     }
-  }
-}
-
-/**
- * Warn about functions without outputs (informational only).
- * This helps catch cases where outputs might be missing.
- */
-export function warnMissingOutputs(
-  config: z.infer<typeof OntologyConfigSchema>
-): void {
-  const functionsWithoutOutputs: string[] = [];
-
-  for (const [fnName, fn] of Object.entries(config.functions)) {
-    if (!fn.outputs) {
-      functionsWithoutOutputs.push(fnName);
-    }
-  }
-
-  if (functionsWithoutOutputs.length > 0) {
-    console.warn(
-      `⚠️  The following functions have no 'outputs' schema defined:\n` +
-        `   ${functionsWithoutOutputs.join(", ")}\n` +
-        `   Consider adding outputs for better MCP tool definitions and documentation.`
-    );
   }
 }
 

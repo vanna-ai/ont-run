@@ -81,8 +81,8 @@ export interface FunctionDefinition<
   entities: TEntities[];
   /** Zod schema for input validation */
   inputs: TInputs;
-  /** Zod schema for output validation/documentation */
-  outputs?: TOutputs;
+  /** Zod schema for output validation */
+  outputs: TOutputs;
   /** Resolver function that handles this function's logic */
   resolver: ResolverFunction<z.infer<TInputs>, z.infer<TOutputs>>;
 }
