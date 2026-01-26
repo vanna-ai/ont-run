@@ -5,8 +5,13 @@
 export const serverTemplate = `import index from "./index.html";
 import { createApiApp, loadConfig } from "ont-run";
 
-const { config } = await loadConfig();
-const api = createApiApp({ config, env: process.env.NODE_ENV === "production" ? "prod" : "dev" });
+const { config, configDir, configPath } = await loadConfig();
+const api = createApiApp({
+  config,
+  configDir,
+  configPath,
+  env: process.env.NODE_ENV === "production" ? "prod" : "dev",
+});
 
 const server = Bun.serve({
   port: Number(process.env.PORT) || 3000,

@@ -21,6 +21,8 @@ export interface BrowserServerOptions {
   configPath?: string;
   port?: number;
   openBrowser?: boolean;
+  /** If true, resolve immediately after starting (don't wait for approval). Useful for background review UI. */
+  background?: boolean;
 }
 
 export interface BrowserServerResult {
@@ -140,7 +142,7 @@ function analyzeField(name: string, schema: z.ZodTypeAny, functions?: Record<str
 }
 
 export async function startBrowserServer(options: BrowserServerOptions): Promise<BrowserServerResult> {
-  const { config, diff = null, configDir, configPath, port: preferredPort, openBrowser = true } = options;
+  const { config, diff = null, configDir, configPath, port: preferredPort, openBrowser = true, background = false } = options;
 
   // Transform config to graph data and enhance with diff info
   const baseGraphData = transformToGraphData(config);
@@ -397,7 +399,14 @@ export async function startBrowserServer(options: BrowserServerOptions): Promise
     }
 
     if (hasChanges) {
-      console.log("Waiting for review decision...\n");
+      if (background) {
+        console.log("Review UI running in background at " + url);
+        console.log("Approve changes to update the lockfile.\n");
+        // Resolve immediately in background mode - server keeps running
+        resolve({});
+      } else {
+        console.log("Waiting for review decision...\n");
+      }
     } else {
       console.log("Press Ctrl+C to stop the server.\n");
       // If no changes, resolve immediately with no approval status
