@@ -227,6 +227,30 @@ export function validateFieldFromReferences(
 }
 
 /**
+ * Warn about functions without outputs (informational only).
+ * This helps catch cases where outputs might be missing.
+ */
+export function warnMissingOutputs(
+  config: z.infer<typeof OntologyConfigSchema>
+): void {
+  const functionsWithoutOutputs: string[] = [];
+
+  for (const [fnName, fn] of Object.entries(config.functions)) {
+    if (!fn.outputs) {
+      functionsWithoutOutputs.push(fnName);
+    }
+  }
+
+  if (functionsWithoutOutputs.length > 0) {
+    console.warn(
+      `⚠️  The following functions have no 'outputs' schema defined:\n` +
+        `   ${functionsWithoutOutputs.join(", ")}\n` +
+        `   Consider adding outputs for better MCP tool definitions and documentation.`
+    );
+  }
+}
+
+/**
  * Validate that functions using userContext() will receive user data from auth.
  * This does a runtime check by calling auth with a mock request to verify it returns
  * an AuthResult with a user field.

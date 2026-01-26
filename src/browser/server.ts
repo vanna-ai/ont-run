@@ -3274,6 +3274,16 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
       if (schema.enum) {
         return schema.enum.map(e => \`"\${e}"\`).join(' | ');
       }
+      // Handle union/intersection schemas
+      if (schema.anyOf) {
+        return schema.anyOf.map(formatSchemaType).join(' | ');
+      }
+      if (schema.oneOf) {
+        return schema.oneOf.map(formatSchemaType).join(' | ');
+      }
+      if (schema.allOf) {
+        return schema.allOf.map(formatSchemaType).join(' & ');
+      }
       let type = schema.type || 'unknown';
       if (schema.format) {
         type += \` (\${schema.format})\`;

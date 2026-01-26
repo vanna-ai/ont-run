@@ -4,6 +4,7 @@ import {
   validateAccessGroups,
   validateEntityReferences,
   validateFieldFromReferences,
+  warnMissingOutputs,
 } from "./schema.js";
 import type {
   OntologyConfig,
@@ -79,6 +80,9 @@ export function defineOntology<
   // Validate that all fieldFrom() references point to existing functions
   validateFieldFromReferences(parsed);
 
+  // Warn about functions without outputs
+  warnMissingOutputs(parsed);
+
   return config as OntologyConfig<TGroups, TEntities, TFunctions>;
 }
 
@@ -107,6 +111,21 @@ export function defineOntology<
  * });
  * ```
  */
+// Overload 1: void resolver → outputs optional
+export function defineFunction<
+  TGroups extends string,
+  TEntities extends string,
+  TInputs extends z.ZodType,
+>(config: {
+  description: string;
+  access: readonly TGroups[];
+  entities: readonly TEntities[];
+  inputs: TInputs;
+  outputs?: undefined;
+  resolver: ResolverFunction<z.infer<TInputs>, void>;
+}): FunctionDefinition<TGroups, TEntities, TInputs, z.ZodVoid>;
+
+// Overload 2: non-void resolver → outputs REQUIRED
 export function defineFunction<
   TGroups extends string,
   TEntities extends string,
@@ -117,12 +136,22 @@ export function defineFunction<
   access: readonly TGroups[];
   entities: readonly TEntities[];
   inputs: TInputs;
-  outputs?: TOutputs;
+  outputs: TOutputs;
   resolver: ResolverFunction<z.infer<TInputs>, z.infer<TOutputs>>;
-}): FunctionDefinition<TGroups, TEntities, TInputs, TOutputs> {
+}): FunctionDefinition<TGroups, TEntities, TInputs, TOutputs>;
+
+// Implementation
+export function defineFunction(config: {
+  description: string;
+  access: readonly string[];
+  entities: readonly string[];
+  inputs: z.ZodType;
+  outputs?: z.ZodType;
+  resolver: ResolverFunction<unknown, unknown>;
+}): FunctionDefinition {
   return {
     ...config,
     access: [...config.access],
     entities: [...config.entities],
-  };
+  } as FunctionDefinition;
 }

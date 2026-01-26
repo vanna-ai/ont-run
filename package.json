@@ -1,6 +1,6 @@
 {
   "name": "ont-run",
-  "version": "0.0.10",
+  "version": "0.0.12",
   "description": "Ontology-enforced API framework for AI coding agents",
   "type": "module",
   "bin": {
@@ -35,8 +35,9 @@
     "docs": "cd docs && bun run dev",
     "docs:build": "cd docs && bun run build",
     "docs:preview": "cd docs && bun run preview",
-    "link": "bun link",
-    "unlink": "bun unlink"
+    "test:init": "(cd $(mktemp -d /tmp/ont-run-XXXX) && bun run ~/git/ont/bin/ont.ts init && bun install)",
+    "test:run": "(cd $(mktemp -d /tmp/ont-run-XXXX) && bun run ~/git/ont/bin/ont.ts init && bun install && bun run dev)",
+    "test:review": "(cd $(mktemp -d /tmp/ont-run-XXXX) && bun run ~/git/ont/bin/ont.ts init && bun install && bun run review)"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.8",
