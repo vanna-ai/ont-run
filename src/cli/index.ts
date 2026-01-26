@@ -1,5 +1,5 @@
 import { defineCommand, runMain } from "citty";
-import { initCommand } from "./commands/init.js";
+import { initCommand } from "./commands/init/index.js";
 import { reviewCommand } from "./commands/review.js";
 import pkg from "../../package.json";
 
