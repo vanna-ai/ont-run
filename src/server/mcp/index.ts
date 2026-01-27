@@ -107,6 +107,8 @@ export function createMcpServer(options: McpServerOptions): Server {
         name: tool.name,
         description: tool.description,
         inputSchema: tool.inputSchema,
+        // Add outputSchema for MCP Apps (only if it's an object type - MCP SDK requirement)
+        ...(tool.outputSchema && tool.outputSchema.type === "object" ? { outputSchema: tool.outputSchema } : {}),
         // Include UI metadata if enabled for MCP Apps integration
         ...(tool.ui ? {
           _meta: {
@@ -211,6 +213,16 @@ export function createMcpServer(options: McpServerOptions): Server {
     try {
       const result = await executeToolWithAccess(name, args || {}, authResult);
 
+      // Find the tool to check if it has UI enabled
+      const accessibleTools = filterToolsByAccess(allTools, authResult.groups);
+      const tool = accessibleTools.find(t => t.name === name);
+
+      // Prepare structuredContent for MCP Apps
+      // structuredContent must be an object, so wrap arrays
+      const structuredContent = tool?.ui
+        ? (Array.isArray(result) ? { data: result } : result)
+        : undefined;
+
       return {
         content: [
           {
@@ -218,6 +230,8 @@ export function createMcpServer(options: McpServerOptions): Server {
             text: JSON.stringify(result, null, 2),
           },
         ],
+        // Include structuredContent for MCP Apps to receive the data
+        ...(structuredContent ? { structuredContent } : {}),
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
