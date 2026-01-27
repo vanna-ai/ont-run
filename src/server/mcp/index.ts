@@ -99,10 +99,11 @@ export function createMcpServer(options: McpServerOptions): Server {
 
   // Handle list tools request - filter by per-request access groups
   server.setRequestHandler(ListToolsRequestSchema, async (_request, extra) => {
+    console.log('[MCP] tools/list request');
     const authResult = getAuthResult(extra.authInfo);
     const accessibleTools = filterToolsByAccess(allTools, authResult.groups);
 
-    return {
+    const response = {
       tools: accessibleTools.map((tool) => ({
         name: tool.name,
         description: tool.description,
@@ -110,8 +111,10 @@ export function createMcpServer(options: McpServerOptions): Server {
         // Add outputSchema for MCP Apps (only if it's an object type - MCP SDK requirement)
         ...(tool.outputSchema && tool.outputSchema.type === "object" ? { outputSchema: tool.outputSchema } : {}),
         // Include UI metadata if enabled for MCP Apps integration
+        // Include both _meta.ui.resourceUri and _meta["ui/resourceUri"] for compatibility
         ...(tool.ui ? {
           _meta: {
+            "ui/resourceUri": tool.ui.resourceUri,  // Legacy key for older hosts
             ui: {
               resourceUri: tool.ui.resourceUri,
             },
@@ -119,12 +122,15 @@ export function createMcpServer(options: McpServerOptions): Server {
         } : {}),
       })),
     };
+    console.log('[MCP] tools/list response:', JSON.stringify(response, null, 2));
+    return response;
   });
 
   // Handle list resource templates request - only if UI tools exist
   if (hasUiTools) {
     server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
-      return {
+      console.log('[MCP] resources/templates/list request');
+      const response = {
         resourceTemplates: [
           {
             uriTemplate: "ui://ont-visualizer/{name}",
@@ -134,15 +140,18 @@ export function createMcpServer(options: McpServerOptions): Server {
           },
         ],
       };
+      console.log('[MCP] resources/templates/list response:', JSON.stringify(response, null, 2));
+      return response;
     });
 
     // Handle list resources request
     server.setRequestHandler(ListResourcesRequestSchema, async (_request, extra) => {
+      console.log('[MCP] resources/list request');
       const authResult = getAuthResult(extra.authInfo);
       const accessibleTools = filterToolsByAccess(allTools, authResult.groups);
       const uiTools = accessibleTools.filter((tool) => tool.ui);
 
-      return {
+      const response = {
         resources: uiTools.map((tool) => ({
           uri: tool.ui!.resourceUri,
           name: `${tool.name} Visualizer`,
@@ -150,15 +159,18 @@ export function createMcpServer(options: McpServerOptions): Server {
           mimeType: "text/html;profile=mcp-app",
         })),
       };
+      console.log('[MCP] resources/list response:', JSON.stringify(response, null, 2));
+      return response;
     });
 
     // Handle read resource request - serve the visualizer HTML
     server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+      console.log('[MCP] resources/read request:', JSON.stringify(request.params, null, 2));
       const { uri } = request.params;
 
       // Check if this is a visualizer resource
       if (uri.startsWith("ui://ont-visualizer/")) {
-        return {
+        const response = {
           contents: [
             {
               uri,
@@ -167,6 +179,8 @@ export function createMcpServer(options: McpServerOptions): Server {
             },
           ],
         };
+        console.log('[MCP] resources/read response: [HTML content omitted]');
+        return response;
       }
 
       throw new Error(`Unknown resource: ${uri}`);
@@ -174,11 +188,14 @@ export function createMcpServer(options: McpServerOptions): Server {
 
     // Handle completion requests for resource templates
     server.setRequestHandler(CompleteRequestSchema, async (request, extra) => {
+      console.log('[MCP] completion/complete request:', JSON.stringify(request.params, null, 2));
       const { ref, argument } = request.params;
 
       // Only handle resource template completions
       if (ref.type !== "ref/resource") {
-        return { completion: { values: [] } };
+        const response = { completion: { values: [] } };
+        console.log('[MCP] completion/complete response:', JSON.stringify(response, null, 2));
+        return response;
       }
 
       // Check if this is the visualizer template
@@ -193,37 +210,43 @@ export function createMcpServer(options: McpServerOptions): Server {
           .map((t) => t.name)
           .filter((name) => name.toLowerCase().startsWith(prefix));
 
-        return {
+        const response = {
           completion: {
             values: matches,
             total: matches.length,
           },
         };
+        console.log('[MCP] completion/complete response:', JSON.stringify(response, null, 2));
+        return response;
       }
 
-      return { completion: { values: [] } };
+      const response = { completion: { values: [] } };
+      console.log('[MCP] completion/complete response:', JSON.stringify(response, null, 2));
+      return response;
     });
   }
 
   // Handle call tool request - validate access per-request
   server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
+    console.log('[MCP] tools/call request:', JSON.stringify(request.params, null, 2));
     const { name, arguments: args } = request.params;
     const authResult = getAuthResult(extra.authInfo);
 
     try {
       const result = await executeToolWithAccess(name, args || {}, authResult);
 
-      // Find the tool to check if it has UI enabled
+      // Find the tool to check if it has outputSchema or UI enabled
       const accessibleTools = filterToolsByAccess(allTools, authResult.groups);
       const tool = accessibleTools.find(t => t.name === name);
 
-      // Prepare structuredContent for MCP Apps
-      // structuredContent must be an object, so wrap arrays
-      const structuredContent = tool?.ui
-        ? (Array.isArray(result) ? { data: result } : result)
-        : undefined;
+      // Prepare structuredContent - required when tool has outputSchema OR ui
+      // For UI tools returning arrays, wrap in { data: ... } since structuredContent must be an object
+      let structuredContent: Record<string, unknown> | undefined;
+      if (tool?.outputSchema || tool?.ui) {
+        structuredContent = Array.isArray(result) ? { data: result } : result;
+      }
 
-      return {
+      const response = {
         content: [
           {
             type: "text" as const,
@@ -233,10 +256,12 @@ export function createMcpServer(options: McpServerOptions): Server {
         // Include structuredContent for MCP Apps to receive the data
         ...(structuredContent ? { structuredContent } : {}),
       };
+      console.log('[MCP] tools/call response:', JSON.stringify(response, null, 2));
+      return response;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
 
-      return {
+      const response = {
         content: [
           {
             type: "text" as const,
@@ -245,6 +270,8 @@ export function createMcpServer(options: McpServerOptions): Server {
         ],
         isError: true,
       };
+      console.log('[MCP] tools/call response:', JSON.stringify(response, null, 2));
+      return response;
     }
   });
 
