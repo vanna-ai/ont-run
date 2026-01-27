@@ -40,6 +40,8 @@ export type { StartOntOptions, StartOntResult } from "./server/start.js";
 // Server utilities for custom server setup
 export { createApiApp } from "./server/api/index.js";
 export type { ApiServerOptions } from "./server/api/index.js";
+export { createMcpApp } from "./server/mcp/index.js";
+export type { CreateMcpAppOptions } from "./server/mcp/index.js";
 export { loadConfig, findConfigFile } from "./cli/utils/config-loader.js";
 export { launchReviewInBackground } from "./browser/launch.js";
 export type { LaunchReviewOptions } from "./browser/launch.js";
@@ -56,6 +58,7 @@ export type {
   ResolverContext,
   ResolverFunction,
   FieldOption,
+  UiConfig,
 } from "./config/types.js";
 
 // Re-export Zod for convenience

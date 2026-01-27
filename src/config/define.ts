@@ -13,6 +13,7 @@ import type {
   EntityDefinition,
   AuthFunction,
   ResolverFunction,
+  UiConfig,
 } from "./types.js";
 
 /**
@@ -120,6 +121,8 @@ export function defineFunction<
   inputs: TInputs;
   outputs: TOutputs;
   resolver: ResolverFunction<z.infer<TInputs>, z.infer<TOutputs>>;
+  /** Enable UI visualization via MCP Apps. Set to true for auto-detection or provide config. */
+  ui?: boolean | UiConfig;
 }): FunctionDefinition<TGroups, TEntities, TInputs, TOutputs> {
   return {
     ...config,

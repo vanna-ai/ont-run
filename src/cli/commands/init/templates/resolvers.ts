@@ -84,3 +84,46 @@ export default async function deleteUser(ctx: ResolverContext, args: DeleteUserA
   };
 }
 `;
+
+export const getSalesDataResolver = `import type { ResolverContext } from 'ont-run';
+
+interface GetSalesDataArgs {
+  region?: string;
+}
+
+interface SalesDataPoint {
+  month: string;
+  sales: number;
+  orders: number;
+}
+
+/**
+ * Returns sales data for visualization.
+ * This function has ui: true, so MCP clients will display results
+ * in an interactive chart/table visualization.
+ */
+export default async function getSalesData(
+  ctx: ResolverContext,
+  args: GetSalesDataArgs
+): Promise<SalesDataPoint[]> {
+  ctx.logger.info(\`Getting sales data for region: \${args.region || 'all'}\`);
+
+  // Example data - replace with real database queries
+  const data: SalesDataPoint[] = [
+    { month: 'Jan', sales: 4000, orders: 240 },
+    { month: 'Feb', sales: 3000, orders: 198 },
+    { month: 'Mar', sales: 5000, orders: 300 },
+    { month: 'Apr', sales: 4500, orders: 278 },
+    { month: 'May', sales: 6000, orders: 389 },
+    { month: 'Jun', sales: 5500, orders: 349 },
+  ];
+
+  // Filter by region if specified
+  if (args.region) {
+    // In a real app, you'd filter the database query
+    ctx.logger.info(\`Filtering by region: \${args.region}\`);
+  }
+
+  return data;
+}
+`;

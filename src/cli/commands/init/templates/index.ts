@@ -13,6 +13,6 @@ export {
   statsCardTemplate,
 } from "./components.js";
 export { homeRouteTemplate, dashboardRouteTemplate, aboutRouteTemplate } from "./routes.js";
-export { healthCheckResolver, getUserResolver, deleteUserResolver } from "./resolvers.js";
+export { healthCheckResolver, getUserResolver, deleteUserResolver, getSalesDataResolver } from "./resolvers.js";
 export { skillTemplate } from "./skills.js";
 export { gitignoreTemplate } from "./gitignore.js";

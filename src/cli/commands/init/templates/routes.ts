@@ -122,90 +122,191 @@ export function Home() {
 }
 `;
 
-export const dashboardRouteTemplate = `import { Activity, Users, Zap, Clock } from "lucide-react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+export const dashboardRouteTemplate = `import { useState, useEffect } from "react";
+import { Activity, Users, Zap, Clock, BarChart3, Bot, Loader2 } from "lucide-react";
+import {
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, Legend
+} from "recharts";
 import { StatsCard } from "../components/StatsCard";
 import { VannaCard } from "../components/VannaCard";
 import { VannaButton } from "../components/VannaButton";
 
-const weeklyData = [
-  { day: "Mon", requests: 2400 },
-  { day: "Tue", requests: 1398 },
-  { day: "Wed", requests: 9800 },
-  { day: "Thu", requests: 3908 },
-  { day: "Fri", requests: 4800 },
-  { day: "Sat", requests: 3800 },
-  { day: "Sun", requests: 4300 },
-];
+interface SalesDataPoint {
+  month: string;
+  sales: number;
+  orders: number;
+}
 
 export function Dashboard() {
+  const [salesData, setSalesData] = useState<SalesDataPoint[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/getSalesData", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setSalesData(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, []);
+
+  // Calculate stats from sales data
+  const totalSales = salesData.reduce((sum, d) => sum + d.sales, 0);
+  const totalOrders = salesData.reduce((sum, d) => sum + d.orders, 0);
+  const avgSales = salesData.length > 0 ? Math.round(totalSales / salesData.length) : 0;
+
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold font-serif text-navy">Dashboard</h1>
-        <p className="mt-2 text-navy/60">Monitor your API performance and usage.</p>
+        <p className="mt-2 text-navy/60">Sales data fetched from your Ontology API.</p>
       </div>
 
       {/* Stats Grid */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatsCard
-          title="Total Requests"
-          value="28,406"
+          title="Total Sales"
+          value={loading ? "..." : \`$\${totalSales.toLocaleString()}\`}
           change={12.5}
           icon={<Activity className="w-5 h-5" />}
         />
         <StatsCard
-          title="Active Users"
-          value="1,234"
+          title="Total Orders"
+          value={loading ? "..." : totalOrders.toLocaleString()}
           change={8.2}
           icon={<Users className="w-5 h-5" />}
         />
         <StatsCard
-          title="Avg Response"
-          value="45ms"
+          title="Avg Monthly Sales"
+          value={loading ? "..." : \`$\${avgSales.toLocaleString()}\`}
           change={-5.1}
           icon={<Zap className="w-5 h-5" />}
         />
         <StatsCard
-          title="Uptime"
-          value="99.9%"
+          title="Months"
+          value={loading ? "..." : salesData.length.toString()}
           icon={<Clock className="w-5 h-5" />}
         />
       </div>
 
-      {/* Chart */}
+      {/* Sales Trend Chart */}
       <VannaCard>
-        <h2 className="text-lg font-semibold font-serif text-navy mb-6">Weekly Requests</h2>
+        <h2 className="text-lg font-semibold font-serif text-navy mb-6">Sales Trend</h2>
         <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={weeklyData}>
-              <defs>
-                <linearGradient id="colorRequests" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#15a8a8" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#15a8a8" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#023d6020" />
-              <XAxis dataKey="day" stroke="#023d6060" fontSize={12} />
-              <YAxis stroke="#023d6060" fontSize={12} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "white",
-                  border: "none",
-                  borderRadius: "8px",
-                  boxShadow: "0 4px 14px 0 rgba(21, 168, 168, 0.15)",
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="requests"
-                stroke="#15a8a8"
-                strokeWidth={2}
-                fill="url(#colorRequests)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          {loading ? (
+            <div className="h-full flex items-center justify-center text-navy/40">
+              <Loader2 className="w-6 h-6 animate-spin mr-2" />
+              Loading data...
+            </div>
+          ) : error ? (
+            <div className="h-full flex items-center justify-center text-orange">
+              Error: {error}
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={salesData}>
+                <defs>
+                  <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#15a8a8" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#15a8a8" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#023d6020" />
+                <XAxis dataKey="month" stroke="#023d6060" fontSize={12} />
+                <YAxis stroke="#023d6060" fontSize={12} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "white",
+                    border: "none",
+                    borderRadius: "8px",
+                    boxShadow: "0 4px 14px 0 rgba(21, 168, 168, 0.15)",
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="sales"
+                  stroke="#15a8a8"
+                  strokeWidth={2}
+                  fill="url(#colorSales)"
+                  name="Sales ($)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </div>
+      </VannaCard>
+
+      {/* Multi-Series Bar Chart */}
+      <VannaCard>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-teal/10 rounded-lg text-teal">
+            <BarChart3 className="w-5 h-5" />
+          </div>
+          <h2 className="text-lg font-semibold font-serif text-navy">Sales vs Orders</h2>
+        </div>
+        <div className="h-72">
+          {loading ? (
+            <div className="h-full flex items-center justify-center text-navy/40">
+              <Loader2 className="w-6 h-6 animate-spin mr-2" />
+              Loading data...
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={salesData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#023d6020" />
+                <XAxis dataKey="month" stroke="#023d6060" fontSize={12} />
+                <YAxis yAxisId="left" stroke="#023d6060" fontSize={12} />
+                <YAxis yAxisId="right" orientation="right" stroke="#023d6060" fontSize={12} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "white",
+                    border: "none",
+                    borderRadius: "8px",
+                    boxShadow: "0 4px 14px 0 rgba(21, 168, 168, 0.15)",
+                  }}
+                />
+                <Legend />
+                <Bar yAxisId="left" dataKey="sales" fill="#15a8a8" name="Sales ($)" radius={[4, 4, 0, 0]} />
+                <Bar yAxisId="right" dataKey="orders" fill="#fe5d26" name="Orders" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </VannaCard>
+
+      {/* MCP Apps Feature Card */}
+      <VannaCard>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 bg-magenta/10 rounded-lg text-magenta">
+            <Bot className="w-5 h-5" />
+          </div>
+          <h2 className="text-lg font-semibold font-serif text-navy">MCP Apps Visualization</h2>
+        </div>
+        <p className="text-navy/60 mb-4">
+          The <code className="bg-navy/5 px-1.5 py-0.5 rounded text-sm">getSalesData</code> function has
+          <code className="bg-navy/5 px-1.5 py-0.5 rounded text-sm ml-1">ui</code> enabled. When called via MCP,
+          results are automatically displayed in an interactive chart.
+        </p>
+        <div className="bg-navy/5 rounded-lg p-4 font-mono text-sm">
+          <p className="text-navy/50 mb-2"># In ontology.config.ts:</p>
+          <p className="text-navy">getSalesData: {"{"}</p>
+          <p className="text-navy pl-4">// ... other config</p>
+          <p className="text-teal pl-4">ui: {"{"} type: 'chart', chartType: 'bar', xAxis: 'month' {"}"}</p>
+          <p className="text-navy">{"}"}</p>
+        </div>
+        <p className="mt-4 text-sm text-navy/50">
+          Try it in Claude Desktop or any MCP client by calling <code className="bg-navy/5 px-1.5 py-0.5 rounded">getSalesData</code>.
+        </p>
       </VannaCard>
 
       {/* Button Gallery */}

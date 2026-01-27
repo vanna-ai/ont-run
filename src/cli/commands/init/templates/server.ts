@@ -2,30 +2,64 @@
 // Server Templates
 // ============================================================================
 
-export const serverTemplate = `import index from "./index.html";
-import { createApiApp, loadConfig } from "ont-run";
+export const serverTemplate = `import { createApiApp, createMcpApp, loadConfig } from "ont-run";
 
 const { config, configDir, configPath } = await loadConfig();
-const api = createApiApp({
-  config,
-  configDir,
-  configPath,
-  env: process.env.NODE_ENV === "production" ? "prod" : "dev",
-});
+const env = process.env.NODE_ENV === "production" ? "prod" : "dev";
+
+const api = createApiApp({ config, configDir, configPath, env });
+const mcp = await createMcpApp({ config, env });
+
+// Read index.html for SPA fallback
+const indexHtml = await Bun.file(import.meta.dir + "/index.html").text();
 
 const server = Bun.serve({
   port: Number(process.env.PORT) || 3000,
-  routes: {
-    "/health": req => api.fetch(req),
-    "/api": req => api.fetch(req),
-    "/api/*": req => api.fetch(req),
-    "/*": index,
+  // Serve static files from src directory in development
+  static: {
+    "/index.css": new Response(await Bun.file(import.meta.dir + "/index.css").bytes(), {
+      headers: { "Content-Type": "text/css" },
+    }),
+  },
+  // Use fetch handler to properly route all HTTP methods
+  async fetch(req) {
+    const url = new URL(req.url);
+
+    // Health check
+    if (url.pathname === "/health") {
+      return api.fetch(req);
+    }
+
+    // API routes (all methods)
+    if (url.pathname.startsWith("/api")) {
+      return api.fetch(req);
+    }
+
+    // MCP endpoint (all methods - POST for JSON-RPC, GET for SSE)
+    if (url.pathname === "/mcp") {
+      return mcp.fetch(req);
+    }
+
+    // Check if requesting a static file that exists
+    if (url.pathname !== "/" && !url.pathname.includes("..")) {
+      const filePath = import.meta.dir + url.pathname;
+      const file = Bun.file(filePath);
+      if (await file.exists()) {
+        return new Response(file);
+      }
+    }
+
+    // Frontend - serve index.html for all other routes (React Router SPA)
+    return new Response(indexHtml, {
+      headers: { "Content-Type": "text/html" },
+    });
   },
   development: process.env.NODE_ENV !== "production",
 });
 
 console.log(\`Server: http://localhost:\${server.port}\`);
 console.log(\`API: http://localhost:\${server.port}/api\`);
+console.log(\`MCP: http://localhost:\${server.port}/mcp\`);
 `;
 
 export const htmlTemplate = `<!DOCTYPE html>

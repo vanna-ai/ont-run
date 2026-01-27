@@ -1,6 +1,20 @@
 import type { z } from "zod";
 
 /**
+ * UI visualization configuration for MCP Apps
+ */
+export interface UiConfig {
+  /** Type of visualization to render */
+  type?: "table" | "chart" | "json" | "auto";
+  /** Chart type when type is "chart" */
+  chartType?: "line" | "bar" | "pie";
+  /** Field to use for x-axis in charts */
+  xAxis?: string;
+  /** Field to use for y-axis in charts */
+  yAxis?: string;
+}
+
+/**
  * Configuration for an environment (dev, test, prod)
  */
 export interface EnvironmentConfig {
@@ -85,6 +99,8 @@ export interface FunctionDefinition<
   outputs: TOutputs;
   /** Resolver function that handles this function's logic */
   resolver: ResolverFunction<z.infer<TInputs>, z.infer<TOutputs>>;
+  /** Enable UI visualization via MCP Apps. Set to true for auto-detection or provide config. */
+  ui?: boolean | UiConfig;
 }
 
 /**

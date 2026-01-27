@@ -9,6 +9,7 @@ import { z } from 'zod';
 import healthCheck from './resolvers/healthCheck.js';
 import getUser from './resolvers/getUser.js';
 import deleteUser from './resolvers/deleteUser.js';
+import getSalesData from './resolvers/getSalesData.js';
 
 export default defineOntology({
   name: 'my-api',
@@ -21,7 +22,11 @@ export default defineOntology({
   // Pluggable auth - customize this for your use case
   // Return { groups, user } for row-level access control
   auth: async (req) => {
-    const token = req.headers.get('Authorization');
+    // Accept token from header or query param (useful for webhooks, MCP clients, etc.)
+    const header = req.headers.get('Authorization');
+    const url = new URL(req.url);
+    const token = header || url.searchParams.get('token');
+
     // Return access groups and optional user data
     // This is where you'd verify JWTs, API keys, etc.
     if (!token) return { groups: ['public'] };
@@ -99,6 +104,30 @@ export default defineOntology({
         deletedAt: z.string(),
       }),
       resolver: deleteUser,
+    },
+
+    // Example: Function with UI visualization (MCP Apps)
+    // When called via MCP, results are displayed in an interactive chart/table
+    getSalesData: {
+      description: 'Get sales data for visualization',
+      access: ['support', 'admin'],
+      entities: [],
+      inputs: z.object({
+        region: z.string().optional(),
+      }),
+      outputs: z.array(z.object({
+        month: z.string(),
+        sales: z.number(),
+        orders: z.number(),
+      })),
+      // Enable interactive visualization in MCP clients
+      // Configure chart type and axes for optimal display
+      ui: {
+        type: 'chart',
+        chartType: 'bar',
+        xAxis: 'month',
+      },
+      resolver: getSalesData,
     },
   },
 });

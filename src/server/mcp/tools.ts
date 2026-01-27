@@ -5,6 +5,7 @@ import type {
   ResolverContext,
   EnvironmentConfig,
   AuthResult,
+  UiConfig,
 } from "../../config/types.js";
 import { getFieldFromMetadata, getUserContextFields, hasUserContextMetadata } from "../../config/categorical.js";
 import {
@@ -30,6 +31,14 @@ export interface McpFieldReference {
 }
 
 /**
+ * MCP Tool UI metadata for MCP Apps integration
+ */
+export interface McpToolUiMeta {
+  resourceUri: string;
+  config?: UiConfig;
+}
+
+/**
  * MCP Tool definition
  */
 export interface McpTool {
@@ -40,6 +49,8 @@ export interface McpTool {
   access: string[];
   entities: string[];
   fieldReferences?: McpFieldReference[];
+  /** UI configuration for MCP Apps visualization */
+  ui?: McpToolUiMeta;
 }
 
 /**
@@ -187,6 +198,16 @@ export function generateMcpTools(config: OntologyConfig): McpTool[] {
     // Extract field references
     const fieldReferences = extractFieldReferencesForMcp(fn.inputs);
 
+    // Build UI metadata if ui is enabled
+    let ui: McpToolUiMeta | undefined;
+    if (fn.ui) {
+      const uiConfig = typeof fn.ui === "boolean" ? undefined : fn.ui;
+      ui = {
+        resourceUri: `ui://ont-visualizer/${name}`,
+        config: uiConfig,
+      };
+    }
+
     tools.push({
       name,
       description: fn.description,
@@ -196,6 +217,7 @@ export function generateMcpTools(config: OntologyConfig): McpTool[] {
       entities: fn.entities,
       fieldReferences:
         fieldReferences.length > 0 ? fieldReferences : undefined,
+      ui,
     });
   }
 

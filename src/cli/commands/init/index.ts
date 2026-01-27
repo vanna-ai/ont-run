@@ -24,6 +24,7 @@ import {
   healthCheckResolver,
   getUserResolver,
   deleteUserResolver,
+  getSalesDataResolver,
   skillTemplate,
   gitignoreTemplate,
 } from "./templates/index.js";
@@ -109,6 +110,7 @@ export const initCommand = defineCommand({
       ["resolvers/healthCheck.ts", healthCheckResolver],
       ["resolvers/getUser.ts", getUserResolver],
       ["resolvers/deleteUser.ts", deleteUserResolver],
+      ["resolvers/getSalesData.ts", getSalesDataResolver],
 
       // .claude/skills/
       [".claude/skills/ont-run/SKILL.md", skillTemplate],
