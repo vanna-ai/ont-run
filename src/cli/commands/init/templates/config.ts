@@ -110,7 +110,7 @@ export default defineOntology({
     // When called via MCP, results are displayed in an interactive chart/table
     getSalesData: {
       description: 'Get sales data for visualization',
-      access: ['support', 'admin'],
+      access: ['public', 'support', 'admin'],
       entities: [],
       inputs: z.object({
         region: z.string().optional(),
