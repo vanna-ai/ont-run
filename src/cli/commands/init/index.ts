@@ -1,5 +1,6 @@
 import { defineCommand } from "citty";
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from "fs";
+import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "fs";
+import { execSync, spawn } from "child_process";
 import { join } from "path";
 import consola from "consola";
 
@@ -29,6 +30,48 @@ import {
   gitignoreTemplate,
 } from "./templates/index.js";
 
+/**
+ * Check if a directory is empty (excluding dotfiles)
+ */
+function isDirectoryEmpty(dir: string): boolean {
+  const entries = readdirSync(dir);
+  const nonDotEntries = entries.filter(entry => !entry.startsWith('.'));
+  return nonDotEntries.length === 0;
+}
+
+/**
+ * Get the path to bun binary, checking PATH first then default install location
+ */
+function getBunPath(): string | null {
+  // Check if bun is in PATH
+  try {
+    execSync("bun --version", { stdio: "ignore" });
+    return "bun";
+  } catch {
+    // Check default installation location
+    const homedir = process.env.HOME || process.env.USERPROFILE || "";
+    const defaultBunPath = join(homedir, ".bun", "bin", "bun");
+    if (existsSync(defaultBunPath)) {
+      return defaultBunPath;
+    }
+    return null;
+  }
+}
+
+/**
+ * Run a command with inherited stdio, returns promise of exit code
+ */
+function runCommand(command: string, args: string[], cwd?: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const proc = spawn(command, args, {
+      cwd,
+      stdio: "inherit",
+    });
+    proc.on("close", (code) => resolve(code === 0));
+    proc.on("error", () => resolve(false));
+  });
+}
+
 export const initCommand = defineCommand({
   meta: {
     name: "init",
@@ -39,11 +82,6 @@ export const initCommand = defineCommand({
       type: "positional",
       description: "Directory to initialize (default: current directory)",
       default: ".",
-    },
-    force: {
-      type: "boolean",
-      description: "Overwrite existing files",
-      default: false,
     },
   },
   async run({ args }) {
@@ -56,10 +94,12 @@ export const initCommand = defineCommand({
       mkdirSync(targetDir, { recursive: true });
     }
 
-    // Check for existing config
-    const configPath = join(targetDir, "ontology.config.ts");
-    if (existsSync(configPath) && !args.force) {
-      consola.error("ontology.config.ts already exists. Use --force to overwrite.");
+    // Check if directory is empty (excluding dotfiles)
+    if (existsSync(targetDir) && !isDirectoryEmpty(targetDir)) {
+      consola.error(
+        "Directory is not empty. Please initialize in an empty directory:\n\n" +
+        "  npx ont-run init my-project"
+      );
       process.exit(1);
     }
 
@@ -167,16 +207,72 @@ export const initCommand = defineCommand({
     writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     consola.success("Updated package.json");
 
+    // Check for bun installation
+    let bunPath = getBunPath();
+
+    if (!bunPath) {
+      console.log("\n");
+      consola.warn("Bun is not installed.");
+
+      const shouldInstall = await consola.prompt(
+        "Would you like to install bun now?",
+        { type: "confirm", initial: true }
+      );
+
+      if (shouldInstall) {
+        consola.info("Installing bun...");
+        const installed = await runCommand("bash", ["-c", "curl -fsSL https://bun.sh/install | bash"]);
+
+        if (installed) {
+          consola.success("Bun installed successfully!");
+          // Check again after install (will find it at ~/.bun/bin/bun)
+          bunPath = getBunPath();
+        } else {
+          consola.error("Failed to install bun.");
+          consola.info("Install manually: curl -fsSL https://bun.sh/install | bash");
+        }
+      } else {
+        consola.info("Install bun manually: curl -fsSL https://bun.sh/install | bash");
+        consola.info("Then run: bun install");
+      }
+    }
+
+    // Run bun install if bun is available
+    if (bunPath) {
+      console.log("\n");
+      consola.info("Installing dependencies...");
+      const installSuccess = await runCommand(bunPath, ["install"], targetDir);
+
+      if (installSuccess) {
+        consola.success("Dependencies installed!");
+      } else {
+        consola.warn("Failed to install dependencies. Please run 'bun install' manually.");
+      }
+    }
+
     // Instructions
     console.log("\n");
-    consola.box(
-      "Full-stack Ontology project initialized!\n\n" +
-        "Next steps:\n" +
-        "  1. Run `bun install` to install dependencies\n" +
-        "  2. Run `bun run review` to approve the initial ontology\n" +
-        "  3. Run `bun run dev` to start the dev server\n\n" +
-        "Your app will be available at http://localhost:3000\n" +
-        "API endpoints at http://localhost:3000/api"
-    );
+    if (bunPath) {
+      consola.box(
+        "Full-stack Ontology project initialized!\n\n" +
+          "Next steps:\n" +
+          "  1. Run `bun run review` to approve the initial ontology\n" +
+          "  2. Run `bun run dev` to start the dev server\n\n" +
+          "Your app will be available at http://localhost:3000\n" +
+          "API endpoints at http://localhost:3000/api"
+      );
+    } else {
+      consola.box(
+        "Full-stack Ontology project initialized!\n\n" +
+          "Next steps:\n" +
+          "  1. Install bun: curl -fsSL https://bun.sh/install | bash\n" +
+          "  2. Restart your terminal\n" +
+          "  3. Run `bun install` to install dependencies\n" +
+          "  4. Run `bun run review` to approve the initial ontology\n" +
+          "  5. Run `bun run dev` to start the dev server\n\n" +
+          "Your app will be available at http://localhost:3000\n" +
+          "API endpoints at http://localhost:3000/api"
+      );
+    }
   },
 });

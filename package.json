@@ -29,14 +29,16 @@
   "scripts": {
     "dev": "bun run bin/ont.ts",
     "build": "bun build ./src/index.ts --outdir ./dist --target node",
-    "build:cli": "bun build ./bin/ont.ts --outfile ./dist/bin/ont.js --target node --external @modelcontextprotocol/sdk --external zod",
+    "build:cli": "bun build ./bin/ont.ts --outfile ./dist/bin/ont.js --target node --external @modelcontextprotocol/sdk --external zod && sed -i '' '1s/bun/node/' ./dist/bin/ont.js",
     "build:types": "tsc --declaration --emitDeclarationOnly",
     "build:apps": "bun run scripts/bundle-apps.ts",
     "prepublishOnly": "bun run build:apps && bun run build && bun run build:cli && bun run build:types",
     "docs": "cd docs && bun run dev",
     "docs:build": "cd docs && bun run build",
     "docs:preview": "cd docs && bun run preview",
-    "test:init": "(cd $(mktemp -d /tmp/ont-run-XXXX) && bun run ~/git/ont/bin/ont.ts init && bun remove ont-run && bun add ~/git/ont)",
+    "test:init": "(cd $(mktemp -d /tmp/ont-run-XXXX) && bun run ~/git/ont/bin/ont.ts init)",
+    "test:init:nonempty": "(cd $(mktemp -d /tmp/ont-run-XXXX) && touch foo.txt && bun run ~/git/ont/bin/ont.ts init)",
+    "test:init:nobun": "docker run --rm -i -v ~/git/ont:/ont -w /app node:22 bash -c 'npm pack /ont && echo y | /usr/local/bin/npx ont-run-*.tgz init my-project'",
     "test:run": "(cd $(mktemp -d /tmp/ont-run-XXXX) && bun run ~/git/ont/bin/ont.ts init && bun remove ont-run && bun add ~/git/ont && bun run dev)",
     "test:review": "(cd $(mktemp -d /tmp/ont-run-XXXX) && bun run ~/git/ont/bin/ont.ts init && bun remove ont-run && bun add ~/git/ont && bun run review)"
   },

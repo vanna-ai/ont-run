@@ -14,32 +14,17 @@ const mcp = await createMcpApp({ config, env });
 
 const server = Bun.serve({
   port: Number(process.env.PORT) || 3000,
-  // Routes API - Bun handles static files and transpilation
   routes: {
+    // HTML route - Bun handles bundling and transpilation
     "/": index,
-  },
-  // Use fetch handler for API/MCP routes
-  async fetch(req) {
-    const url = new URL(req.url);
-
+    // API routes (wildcard must come before SPA fallback)
+    "/api/*": (req: Request) => api.fetch(req),
     // Health check
-    if (url.pathname === "/health") {
-      return api.fetch(req);
-    }
-
-    // API routes (all methods)
-    if (url.pathname.startsWith("/api")) {
-      return api.fetch(req);
-    }
-
-    // MCP endpoint (all methods - POST for JSON-RPC, GET for SSE)
-    if (url.pathname === "/mcp") {
-      return mcp.fetch(req);
-    }
-
+    "/health": (req: Request) => api.fetch(req),
+    // MCP endpoint (POST for JSON-RPC, GET for SSE)
+    "/mcp": (req: Request) => mcp.fetch(req),
     // SPA fallback - serve index.html for client-side routing
-    // Cast needed because Bun handles HTMLBundle at runtime
-    return index as unknown as Response;
+    "/*": index,
   },
   development: process.env.NODE_ENV !== "production",
 });
