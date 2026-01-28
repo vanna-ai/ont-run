@@ -62,7 +62,7 @@ export function createApiApp(options: ApiServerOptions): Hono<{ Variables: Ontol
         launchReviewInBackground({ config, diff, configDir, configPath });
       } else {
         throw new Error(
-          "Missing lockfile in production mode. Run `npx ont-run review` to approve the ontology."
+          "Missing ont.lock file in production mode. Run `npx ont-run review` to approve the ontology."
         );
       }
     } else {
@@ -73,7 +73,7 @@ export function createApiApp(options: ApiServerOptions): Hono<{ Variables: Ontol
 
         if (diff.hasChanges) {
           if (isDev) {
-            consola.warn("Lockfile mismatch detected:");
+            consola.warn("Ontology Lockfile mismatch detected:");
             console.log("\n" + formatDiffForConsole(diff) + "\n");
             consola.warn("Auto-launching review UI to approve the changes.\n");
 
@@ -82,17 +82,17 @@ export function createApiApp(options: ApiServerOptions): Hono<{ Variables: Ontol
           } else {
             console.log("\n" + formatDiffForConsole(diff) + "\n");
             throw new Error(
-              "Lockfile mismatch in production mode. Run `npx ont-run review` to approve the changes."
+              "Ontology Lockfile mismatch in production mode. Run `npx ont-run review` to approve the changes."
             );
           }
         } else {
-          consola.success("Lockfile verified");
+          consola.success("Ontology Lockfile verified");
         }
       });
 
       // Handle async lockfile check - don't block app creation but log errors
       lockfilePromise.catch((error) => {
-        consola.error("Lockfile validation error:", error instanceof Error ? error.message : error);
+        consola.error("Ontology Lockfile validation error:", error instanceof Error ? error.message : error);
       });
     }
   }

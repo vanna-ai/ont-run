@@ -92,7 +92,7 @@ export async function startOnt(options: StartOntOptions = {}): Promise<StartOntR
       consola.warn("Run `npx ont-run review` to approve the initial ontology.\n");
     } else {
       consola.error(message);
-      throw new Error("Missing lockfile in production mode");
+      throw new Error("Missing ont.lock file in production mode");
     }
   } else {
     const lockfile = await readLockfile(configDir);
@@ -103,16 +103,16 @@ export async function startOnt(options: StartOntOptions = {}): Promise<StartOntR
       const message = `Ontology has changed since last review.\nRun \`bun run review\` to approve the changes.`;
 
       if (isDev) {
-        consola.warn("Lockfile mismatch detected:");
+        consola.warn("Ontology Lockfile mismatch detected:");
         console.log("\n" + formatDiffForConsole(diff) + "\n");
         consola.warn("Run `npx ont-run review` to approve these changes.\n");
       } else {
         consola.error(message);
         console.log("\n" + formatDiffForConsole(diff) + "\n");
-        throw new Error("Lockfile mismatch in production mode");
+        throw new Error("Ontology Lockfile mismatch in production mode");
       }
     } else {
-      consola.success("Lockfile verified");
+      consola.success("Ontology Lockfile verified");
     }
   }
 
