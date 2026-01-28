@@ -5,6 +5,7 @@ import {
   validateEntityReferences,
   validateFieldFromReferences,
 } from "./schema.js";
+import { validateUiConfig } from "./validate-ui.js";
 import type {
   OntologyConfig,
   FunctionDefinition,
@@ -79,6 +80,11 @@ export function defineOntology<
 
   // Validate that all fieldFrom() references point to existing functions
   validateFieldFromReferences(parsed);
+
+  // Validate UI configs are compatible with output schemas
+  for (const [name, tool] of Object.entries(config.functions)) {
+    validateUiConfig(name, tool);
+  }
 
   return config as OntologyConfig<TGroups, TEntities, TFunctions>;
 }
