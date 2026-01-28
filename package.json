@@ -36,11 +36,11 @@
     "docs": "cd docs && bun run dev",
     "docs:build": "cd docs && bun run build",
     "docs:preview": "cd docs && bun run preview",
-    "test:init": "(cd $(mktemp -d /tmp/ont-run-XXXX) && bun run ~/git/ont/bin/ont.ts init)",
-    "test:init:nonempty": "(cd $(mktemp -d /tmp/ont-run-XXXX) && touch foo.txt && bun run ~/git/ont/bin/ont.ts init)",
-    "test:init:nobun": "docker run --rm -i -v ~/git/ont:/ont -w /app node:22 bash -c 'npm pack /ont && echo y | /usr/local/bin/npx ont-run-*.tgz init my-project'",
-    "test:run": "(cd $(mktemp -d /tmp/ont-run-XXXX) && bun run ~/git/ont/bin/ont.ts init && bun remove ont-run && bun add ~/git/ont && bun run dev)",
-    "test:review": "(cd $(mktemp -d /tmp/ont-run-XXXX) && bun run ~/git/ont/bin/ont.ts init && bun remove ont-run && bun add ~/git/ont && bun run review)"
+    "test:init": "(cd $(mktemp -d /tmp/ont-run-XXXX) && bun run ~/git/ont-run/bin/ont.ts init)",
+    "test:init:nonempty": "(cd $(mktemp -d /tmp/ont-run-XXXX) && touch foo.txt && bun run ~/git/ont-run/bin/ont.ts init)",
+    "test:init:nobun": "docker run --rm -i -v ~/git/ont-run:/ont -w /app node:22 bash -c 'npm pack /ont && echo y | /usr/local/bin/npx ont-run-*.tgz init my-project'",
+    "test:run": "(cd $(mktemp -d /tmp/ont-run-XXXX) && bun run ~/git/ont-run/bin/ont.ts init && bun remove ont-run && bun add ~/git/ont-run && bun run dev)",
+    "test:review": "(cd $(mktemp -d /tmp/ont-run-XXXX) && bun run ~/git/ont-run/bin/ont.ts init && bun remove ont-run && bun add ~/git/ont-run && bun run review)"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.8",
