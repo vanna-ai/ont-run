@@ -2832,15 +2832,54 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
               'height': 55,
             },
           },
-          // Function nodes with userContext - show indicator below label
+          // Function nodes that are mutations (isReadOnly: false) - Orange accent
           {
-            selector: 'node[type="function"][?usesUserContext]',
+            selector: 'node[type="function"][!isReadOnly]',
+            style: {
+              'border-color': '#fe5d26',
+              'background-color': 'rgba(254, 93, 38, 0.08)',
+            },
+          },
+          // Mutation function nodes - show edit indicator (when no userContext)
+          {
+            selector: 'node[type="function"][!isReadOnly]:not([?usesUserContext])',
+            style: {
+              'background-image': 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="14" fill="#fff5f0" stroke="#fe5d26" stroke-width="1.5"/><g transform="translate(6, 6)" fill="none" stroke="#fe5d26" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 3.5a2.121 2.121 0 0 1 3 3L6 18l-4 1 1-4L14.5 3.5z"/></g></svg>'),
+              'background-width': '18px',
+              'background-height': '18px',
+              'background-position-x': '50%',
+              'background-position-y': '75%',
+              'text-valign': 'center',
+              'text-margin-y': -8,
+            },
+          },
+          // Function nodes with userContext (read-only) - show indicator below label
+          {
+            selector: 'node[type="function"][?usesUserContext][?isReadOnly]',
             style: {
               'background-image': 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="14" fill="#e8f4f8" stroke="#023d60" stroke-width="1.5"/><g transform="translate(4, 4)" fill="none" stroke="#023d60" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></g></svg>'),
               'background-width': '18px',
               'background-height': '18px',
               'background-position-x': '50%',
               'background-position-y': '75%',
+              'text-valign': 'center',
+              'text-margin-y': -8,
+            },
+          },
+          // Function nodes with BOTH mutation AND userContext - show both icons
+          {
+            selector: 'node[type="function"][!isReadOnly][?usesUserContext]',
+            style: {
+              'border-color': '#fe5d26',
+              'background-color': 'rgba(254, 93, 38, 0.08)',
+              'background-image': [
+                'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="14" fill="#fff5f0" stroke="#fe5d26" stroke-width="1.5"/><g transform="translate(6, 6)" fill="none" stroke="#fe5d26" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 3.5a2.121 2.121 0 0 1 3 3L6 18l-4 1 1-4L14.5 3.5z"/></g></svg>'),
+                'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="14" fill="#e8f4f8" stroke="#023d60" stroke-width="1.5"/><g transform="translate(4, 4)" fill="none" stroke="#023d60" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></g></svg>')
+              ],
+              'background-width': ['16px', '16px'],
+              'background-height': ['16px', '16px'],
+              'background-position-x': ['35%', '65%'],
+              'background-position-y': ['75%', '75%'],
               'text-valign': 'center',
               'text-margin-y': -8,
             },
