@@ -58,6 +58,7 @@ export default defineOntology({
       description: 'Check API health status',
       access: ['public', 'support', 'admin'],
       entities: [],
+      isReadOnly: true,
       inputs: z.object({}),
       outputs: z.object({
         status: z.string(),
@@ -72,6 +73,7 @@ export default defineOntology({
       description: 'Get user details by ID',
       access: ['support', 'admin'],
       entities: ['User'],
+      isReadOnly: true,
       inputs: z.object({
         userId: z.string().uuid(),
         // currentUser is injected from auth - not visible to API callers
@@ -94,6 +96,7 @@ export default defineOntology({
       description: 'Delete a user account',
       access: ['admin'],
       entities: ['User'],
+      isReadOnly: false,
       inputs: z.object({
         userId: z.string().uuid(),
         reason: z.string().optional(),
@@ -112,6 +115,7 @@ export default defineOntology({
       description: 'Get sales data for visualization',
       access: ['public', 'support', 'admin'],
       entities: [],
+      isReadOnly: true,
       inputs: z.object({
         region: z.string().optional(),
       }),

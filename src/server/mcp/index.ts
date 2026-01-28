@@ -243,7 +243,7 @@ export function createMcpServer(options: McpServerOptions): Server {
       // For UI tools returning arrays, wrap in { data: ... } since structuredContent must be an object
       let structuredContent: Record<string, unknown> | undefined;
       if (tool?.outputSchema || tool?.ui) {
-        structuredContent = Array.isArray(result) ? { data: result } : result;
+        structuredContent = Array.isArray(result) ? { data: result } : result as Record<string, unknown>;
       }
 
       const response = {

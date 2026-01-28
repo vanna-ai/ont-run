@@ -123,6 +123,8 @@ export function defineFunction<
   resolver: ResolverFunction<z.infer<TInputs>, z.infer<TOutputs>>;
   /** Enable UI visualization via MCP Apps. Set to true for auto-detection or provide config. */
   ui?: boolean | UiConfig;
+  /** Whether this function is read-only (query) or has side effects (mutation) */
+  isReadOnly: boolean;
 }): FunctionDefinition<TGroups, TEntities, TInputs, TOutputs> {
   return {
     ...config,

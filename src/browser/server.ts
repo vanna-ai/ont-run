@@ -728,6 +728,30 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
       height: 12px;
     }
 
+    /* Read-Only Badge */
+    .readonly-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-left: 8px;
+    }
+
+    .readonly-badge.query {
+      background: rgba(34, 197, 94, 0.12);
+      color: #16a34a;
+    }
+
+    .readonly-badge.mutation {
+      background: rgba(249, 115, 22, 0.12);
+      color: #ea580c;
+    }
+
     /* Review Footer */
     .review-footer {
       position: fixed;
@@ -2755,6 +2779,7 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
             changeStatus: node.changeStatus || 'unchanged',
             changeDetails: node.changeDetails || null,
             usesUserContext: node.metadata?.usesUserContext || false,
+            isReadOnly: node.metadata?.isReadOnly,
           },
         });
       }
@@ -3085,9 +3110,14 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
         ? \`<span class="user-context-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>User Context</span>\`
         : '';
 
+      // Build read-only badge for functions
+      const readOnlyBadge = data.type === 'function' && data.isReadOnly !== undefined
+        ? \`<span class="readonly-badge \${data.isReadOnly ? 'query' : 'mutation'}">\${data.isReadOnly ? 'Query' : 'Mutation'}</span>\`
+        : '';
+
       let html = \`
         <div class="detail-header">
-          <div class="detail-type \${data.type}">\${formatType(data.type)}\${changeBadge}\${userContextBadge}</div>
+          <div class="detail-type \${data.type}">\${formatType(data.type)}\${changeBadge}\${readOnlyBadge}\${userContextBadge}</div>
           <div class="detail-name">\${data.label}</div>
           <div class="detail-description">\${data.description || 'No description'}</div>
         </div>

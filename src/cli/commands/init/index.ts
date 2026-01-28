@@ -138,7 +138,7 @@ export const initCommand = defineCommand({
     packageJson.type = "module";
     packageJson.scripts = {
       ...(packageJson.scripts as Record<string, string> || {}),
-      dev: "bun --hot src/index.ts",
+      dev: "bun run typecheck && bun --hot src/index.ts",
       build: "bun run build.ts",
       start: "NODE_ENV=production bun src/index.ts",
       review: "bunx ont-run review",

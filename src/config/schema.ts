@@ -74,6 +74,7 @@ export const FunctionDefinitionSchema = z.object({
   resolver: z.custom<(...args: unknown[]) => unknown>(isFunction, {
     message: "resolver must be a function",
   }),
+  isReadOnly: z.boolean(),
 });
 
 /**

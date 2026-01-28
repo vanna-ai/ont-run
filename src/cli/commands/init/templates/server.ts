@@ -38,7 +38,8 @@ const server = Bun.serve({
     }
 
     // SPA fallback - serve index.html for client-side routing
-    return index;
+    // Cast needed because Bun handles HTMLBundle at runtime
+    return index as unknown as Response;
   },
   development: process.env.NODE_ENV !== "production",
 });
