@@ -12,7 +12,9 @@
   --color-text-primary: #1a1a1a;
   --color-text-secondary: #666666;
   --color-border-primary: #e0e0e0;
+  --color-accent: #3b82f6;
   --border-radius-md: 8px;
+  --border-radius-sm: 4px;
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
 }
@@ -24,6 +26,7 @@
     --color-text-primary: #ffffff;
     --color-text-secondary: #a0a0a0;
     --color-border-primary: #404040;
+    --color-accent: #60a5fa;
   }
 }
 
@@ -33,16 +36,24 @@
   padding: 0;
 }
 
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
 body {
   font-family: var(--font-sans);
-  background: var(--color-background-primary);
   color: var(--color-text-primary);
   line-height: 1.5;
 }
 
 .container {
-  padding: 16px;
+  padding: 12px;
   max-width: 100%;
+  height: 100%;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
 }
 
 .loading {
@@ -61,7 +72,290 @@ body {
   color: #dc2626;
 }
 
-/* Table styles */
+/* ============================================
+   App Header
+   ============================================ */
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--color-border-primary);
+}
+
+.header-left,
+.header-right {
+  display: flex;
+  gap: 4px;
+}
+
+/* Icon Button */
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-primary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.icon-btn:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+
+.icon-btn.active {
+  background: var(--color-text-primary);
+  color: var(--color-background-primary);
+  border-color: var(--color-text-primary);
+}
+
+/* ============================================
+   App Body Layout
+   ============================================ */
+
+.app-body {
+  display: flex;
+  gap: 16px;
+  flex: 1;
+  min-height: 320px;
+}
+
+.main-content {
+  flex: 1;
+  min-width: 0;
+  min-height: 300px;
+  overflow: auto;
+}
+
+/* ============================================
+   Settings Sidebar
+   ============================================ */
+
+.settings-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--color-border-primary);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: width 0.2s ease;
+}
+
+.sidebar-collapsed {
+  width: 44px;
+  flex-shrink: 0;
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--color-border-primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border-bottom: 1px solid var(--color-border-primary);
+}
+
+.sidebar-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--border-radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sidebar-toggle:hover {
+  background: var(--color-background-primary);
+  color: var(--color-text-primary);
+}
+
+.sidebar-content {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+/* ============================================
+   Control Elements
+   ============================================ */
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.control-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.chart-type-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.chart-type-btn {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--border-radius-sm);
+  background: var(--color-background-primary);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--font-sans);
+  transition: all 0.15s ease;
+}
+
+.chart-type-btn:hover {
+  background: var(--color-background-secondary);
+}
+
+.chart-type-btn.active {
+  background: var(--color-text-primary);
+  color: var(--color-background-primary);
+  border-color: var(--color-text-primary);
+}
+
+.control-select {
+  padding: 6px 8px;
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--border-radius-sm);
+  background: var(--color-background-primary);
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  width: 100%;
+}
+
+.control-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+/* ============================================
+   Drag and Drop Zones
+   ============================================ */
+
+.drop-zone-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.drop-zone {
+  min-height: 60px;
+  padding: 8px;
+  border: 2px dashed var(--color-border-primary);
+  border-radius: var(--border-radius-sm);
+  background: var(--color-background-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+.drop-zone.empty {
+  align-items: center;
+  justify-content: center;
+}
+
+.drop-zone.drag-over {
+  border-color: var(--color-accent);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.drop-hint {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.draggable-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--border-radius-sm);
+  font-size: 12px;
+  cursor: grab;
+  transition: all 0.15s ease;
+}
+
+.draggable-field:hover {
+  border-color: var(--color-text-secondary);
+}
+
+.draggable-field:active {
+  cursor: grabbing;
+}
+
+.drag-handle {
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+/* ============================================
+   Chart Styles
+   ============================================ */
+
+.chart-container {
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-md);
+  padding: 16px;
+  min-height: 332px; /* 300px chart + 32px padding */
+}
+
+.chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-md);
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+/* ============================================
+   Table Styles
+   ============================================ */
+
 .table-container {
   overflow-x: auto;
   border: 1px solid var(--color-border-primary);
@@ -71,12 +365,12 @@ body {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 th,
 td {
-  padding: 12px;
+  padding: 10px 12px;
   text-align: left;
   border-bottom: 1px solid var(--color-border-primary);
 }
@@ -97,14 +391,26 @@ tr:hover {
   background: var(--color-background-secondary);
 }
 
-/* Chart styles */
-.chart-container {
-  background: var(--color-background-secondary);
-  border-radius: var(--border-radius-md);
-  padding: 16px;
+/* ============================================
+   Dark Mode Adjustments
+   ============================================ */
+
+@media (prefers-color-scheme: dark) {
+  .error {
+    background: #450a0a;
+    border-color: #7f1d1d;
+    color: #fca5a5;
+  }
+
+  .drop-zone.drag-over {
+    background: rgba(96, 165, 250, 0.1);
+  }
 }
 
-/* JSON viewer styles */
+/* ============================================
+   Legacy Styles (kept for compatibility)
+   ============================================ */
+
 .json-container {
   background: var(--color-background-secondary);
   border-radius: var(--border-radius-md);
@@ -116,41 +422,7 @@ tr:hover {
   word-break: break-word;
 }
 
-.json-key {
-  color: #0066cc;
-}
-
-.json-string {
-  color: #22863a;
-}
-
-.json-number {
-  color: #005cc5;
-}
-
-.json-boolean {
-  color: #d73a49;
-}
-
-.json-null {
-  color: #6f42c1;
-}
-
-.json-collapsible {
-  cursor: pointer;
-}
-
-.json-collapsed::before {
-  content: "+ ";
-  color: var(--color-text-secondary);
-}
-
-.json-expanded::before {
-  content: "- ";
-  color: var(--color-text-secondary);
-}
-
-/* View switcher */
+/* Old view switcher (kept for potential fallback) */
 .view-switcher {
   display: flex;
   gap: 8px;
@@ -178,33 +450,4 @@ tr:hover {
   background: var(--color-text-primary);
   color: var(--color-background-primary);
   border-color: var(--color-text-primary);
-}
-
-/* Dark mode adjustments for JSON syntax highlighting */
-@media (prefers-color-scheme: dark) {
-  .json-key {
-    color: #79b8ff;
-  }
-
-  .json-string {
-    color: #85e89d;
-  }
-
-  .json-number {
-    color: #79b8ff;
-  }
-
-  .json-boolean {
-    color: #f97583;
-  }
-
-  .json-null {
-    color: #b392f0;
-  }
-
-  .error {
-    background: #450a0a;
-    border-color: #7f1d1d;
-    color: #fca5a5;
-  }
 }

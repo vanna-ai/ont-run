@@ -130,6 +130,7 @@ export default defineOntology({
         type: 'chart',
         chartType: 'bar',
         xAxis: 'month',
+        leftYAxis: ['sales', 'orders'],  // Multiple fields on left axis
       },
       resolver: getSalesData,
     },

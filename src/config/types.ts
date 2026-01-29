@@ -5,12 +5,16 @@ import type { z } from "zod";
  */
 export interface UiConfig {
   /** Type of visualization to render */
-  type?: "table" | "chart" | "json" | "auto";
+  type?: "table" | "chart" | "auto";
   /** Chart type when type is "chart" */
-  chartType?: "line" | "bar" | "pie";
+  chartType?: "line" | "bar";
   /** Field to use for x-axis in charts */
   xAxis?: string;
-  /** Field to use for y-axis in charts */
+  /** Field(s) for left Y-axis */
+  leftYAxis?: string | string[];
+  /** Field(s) for right Y-axis */
+  rightYAxis?: string | string[];
+  /** @deprecated Use leftYAxis instead */
   yAxis?: string;
 }
 

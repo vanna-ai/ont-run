@@ -59,6 +59,35 @@ function extractSchemaFields(schema: z.ZodType): {
 }
 
 /**
+ * Validate Y-axis field(s) - can be a single string or array of strings
+ */
+function validateYAxisFields(
+  toolName: string,
+  fieldName: string,
+  yAxis: string | string[] | undefined,
+  fields: Record<string, string>
+): void {
+  if (!yAxis) return;
+
+  const axes = Array.isArray(yAxis) ? yAxis : [yAxis];
+  const availableFields = Object.keys(fields).join(", ");
+
+  for (const field of axes) {
+    const fieldType = fields[field];
+    if (!fieldType) {
+      throw new Error(
+        `${toolName}: ui.${fieldName} '${field}' not found in outputs schema. Available: ${availableFields}`
+      );
+    }
+    if (fieldType !== "number") {
+      throw new Error(
+        `${toolName}: ui.${fieldName} '${field}' must be a numeric field, got: ${fieldType}`
+      );
+    }
+  }
+}
+
+/**
  * Validate that a function's UI config is compatible with its outputs schema
  */
 export function validateUiConfig(toolName: string, tool: FunctionDefinition): void {
@@ -101,21 +130,14 @@ export function validateUiConfig(toolName: string, tool: FunctionDefinition): vo
     }
   }
 
-  // Check: does yAxis field exist and is it numeric (if specified)?
-  if (ui.yAxis) {
-    const yAxisField = fields[ui.yAxis];
-    if (!yAxisField) {
-      const availableFields = Object.keys(fields).join(", ");
-      throw new Error(
-        `${toolName}: ui.yAxis '${ui.yAxis}' not found in outputs schema. Available: ${availableFields}`
-      );
-    }
-    if (yAxisField !== "number") {
-      throw new Error(
-        `${toolName}: ui.yAxis '${ui.yAxis}' must be a numeric field, got: ${yAxisField}`
-      );
-    }
-  }
+  // Normalize yAxis to leftYAxis for backwards compatibility
+  const leftYAxis = ui.leftYAxis || ui.yAxis;
+
+  // Validate leftYAxis fields
+  validateYAxisFields(toolName, "leftYAxis", leftYAxis, fields);
+
+  // Validate rightYAxis fields
+  validateYAxisFields(toolName, "rightYAxis", ui.rightYAxis, fields);
 
   // Check: are there numeric fields to visualize?
   const numericFields = Object.entries(fields)

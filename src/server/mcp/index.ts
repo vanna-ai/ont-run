@@ -244,6 +244,11 @@ export function createMcpServer(options: McpServerOptions): Server {
       let structuredContent: Record<string, unknown> | undefined;
       if (tool?.outputSchema || tool?.ui) {
         structuredContent = Array.isArray(result) ? { data: result } : result as Record<string, unknown>;
+
+        // Include UI config in structuredContent for the app to receive
+        if (tool?.ui?.config) {
+          structuredContent._uiConfig = tool.ui.config;
+        }
       }
 
       const response = {

@@ -1,12 +1,14 @@
+/**
+ * DataChart Component
+ *
+ * Renders bar or line charts with support for dual Y-axes.
+ */
 import React from "react";
 import {
   BarChart,
   Bar,
   LineChart,
   Line,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -16,109 +18,137 @@ import {
 } from "recharts";
 
 interface UiConfig {
-  type?: "table" | "chart" | "json" | "auto";
-  chartType?: "line" | "bar" | "pie";
+  type?: "table" | "chart" | "auto";
+  chartType?: "line" | "bar";
   xAxis?: string;
+  leftYAxis?: string | string[];
+  rightYAxis?: string | string[];
   yAxis?: string;
 }
 
-interface DataChartProps {
+export interface DataChartProps {
   data: unknown;
   config?: UiConfig | null;
+  chartType: "bar" | "line";
+  xAxis: string;
+  leftYAxes: string[];
+  rightYAxes: string[];
 }
 
 // Color palette for charts
-const COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff7300", "#0088fe", "#00c49f"];
+const COLORS = [
+  "#8884d8",
+  "#82ca9d",
+  "#ffc658",
+  "#ff7300",
+  "#0088fe",
+  "#00c49f",
+  "#ff6b6b",
+  "#4ecdc4",
+];
 
-export function DataChart({ data, config }: DataChartProps) {
+export function DataChart({
+  data,
+  chartType,
+  xAxis,
+  leftYAxes,
+  rightYAxes,
+}: DataChartProps) {
+  // Validation checks
   if (!Array.isArray(data) || data.length === 0) {
-    return <div className="json-container">No data for chart</div>;
+    return <div className="chart-empty">No data for chart</div>;
   }
 
   const first = data[0];
   if (typeof first !== "object" || first === null) {
-    return <div className="json-container">Data is not chartable</div>;
+    return <div className="chart-empty">Data is not chartable</div>;
   }
 
-  const keys = Object.keys(first);
-  const numericKeys = keys.filter(
-    (k) => typeof (first as Record<string, unknown>)[k] === "number"
-  );
-  const categoryKey =
-    keys.find((k) => typeof (first as Record<string, unknown>)[k] === "string") || keys[0];
+  const hasLeftAxis = leftYAxes.length > 0;
+  const hasRightAxis = rightYAxes.length > 0;
+  const hasDualAxis = hasLeftAxis && hasRightAxis;
 
-  if (numericKeys.length === 0) {
-    return <div className="json-container">No numeric data for chart</div>;
+  if (!hasLeftAxis && !hasRightAxis) {
+    return <div className="chart-empty">Select at least one Y-axis field</div>;
   }
 
-  const chartType = config?.chartType || "bar";
-  const xAxis = config?.xAxis || categoryKey;
+  const ChartComponent = chartType === "line" ? LineChart : BarChart;
+  const DataComponent = chartType === "line" ? Line : Bar;
 
-  if (chartType === "pie") {
-    const yAxis = config?.yAxis || numericKeys[0];
-    return (
-      <div className="chart-container">
-        <ResponsiveContainer width="100%" height={300}>
-          <PieChart>
-            <Pie
-              data={data as Record<string, unknown>[]}
-              dataKey={yAxis}
-              nameKey={xAxis}
-              cx="50%"
-              cy="50%"
-              outerRadius={100}
-              label
-            >
-              {data.map((_, index) => (
-                <Cell key={index} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip />
-            <Legend />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-    );
-  }
-
-  if (chartType === "line") {
-    return (
-      <div className="chart-container">
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={data as Record<string, unknown>[]}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey={xAxis} />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            {numericKeys.map((key, i) => (
-              <Line
-                key={key}
-                type="monotone"
-                dataKey={key}
-                stroke={COLORS[i % COLORS.length]}
-              />
-            ))}
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    );
-  }
-
-  // Default: bar chart
   return (
     <div className="chart-container">
       <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={data as Record<string, unknown>[]}>
+        <ChartComponent data={data as Record<string, unknown>[]}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey={xAxis} />
-          <YAxis />
+
+          {/* Left Y-Axis */}
+          {hasLeftAxis && (
+            <YAxis
+              yAxisId="left"
+              orientation="left"
+              stroke={COLORS[0]}
+              {...(!hasDualAxis && { yAxisId: "left" })}
+            />
+          )}
+
+          {/* Right Y-Axis (only if we have fields for it) */}
+          {hasRightAxis && (
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              stroke={COLORS[leftYAxes.length]}
+            />
+          )}
+
           <Tooltip />
           <Legend />
-          {numericKeys.map((key, i) => (
-            <Bar key={key} dataKey={key} fill={COLORS[i % COLORS.length]} />
-          ))}
-        </BarChart>
+
+          {/* Left Y-Axis Data */}
+          {leftYAxes.map((key, i) =>
+            chartType === "line" ? (
+              <Line
+                key={key}
+                yAxisId="left"
+                type="monotone"
+                dataKey={key}
+                stroke={COLORS[i % COLORS.length]}
+                strokeWidth={2}
+                dot={{ r: 4 }}
+              />
+            ) : (
+              <Bar
+                key={key}
+                yAxisId="left"
+                dataKey={key}
+                fill={COLORS[i % COLORS.length]}
+              />
+            )
+          )}
+
+          {/* Right Y-Axis Data */}
+          {rightYAxes.map((key, i) =>
+            chartType === "line" ? (
+              <Line
+                key={key}
+                yAxisId="right"
+                type="monotone"
+                dataKey={key}
+                stroke={COLORS[(leftYAxes.length + i) % COLORS.length]}
+                strokeWidth={2}
+                strokeDasharray="5 5"
+                dot={{ r: 4 }}
+              />
+            ) : (
+              <Bar
+                key={key}
+                yAxisId="right"
+                dataKey={key}
+                fill={COLORS[(leftYAxes.length + i) % COLORS.length]}
+              />
+            )
+          )}
+        </ChartComponent>
       </ResponsiveContainer>
     </div>
   );
