@@ -40,8 +40,8 @@ type FuncInfo struct {
 }
 
 type OntologyConfig struct {
-	Name        string                    `json:"name"`
-	Functions   map[string]FunctionDef    `json:"functions"`
+	Name         string                    `json:"name"`
+	Functions    map[string]FunctionDef    `json:"functions"`
 	AccessGroups map[string]AccessGroupDef `json:"accessGroups"`
 }
 
@@ -66,43 +66,94 @@ var (
 	config       *OntologyConfig
 	ontologyName string = "ont-run"
 	environment  string = "dev"
+	configDir    string
 )
 
-// loadConfig loads the ontology config by executing the TypeScript loader
+// loadConfig loads the ontology config from exported JSON
 func loadConfig() error {
-	// Find ontology.config.ts
+	// Find config directory
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
+	configDir = cwd
 
-	configPath := filepath.Join(cwd, "ontology.config.ts")
+	// Try to load from exported config.json
+	configPath := filepath.Join(cwd, ".ont", "config.json")
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		// Try parent directory
-		configPath = filepath.Join(cwd, "..", "ontology.config.ts")
-		if _, err := os.Stat(configPath); os.IsNotExist(err) {
-			return fmt.Errorf("ontology.config.ts not found")
+		// If config.json doesn't exist, try to export it
+		log.Println("Config JSON not found, attempting to export from ontology.config.ts...")
+		if err := exportConfig(cwd); err != nil {
+			log.Printf("Warning: Could not export config: %v", err)
+			// Fall back to empty config
+			config = &OntologyConfig{
+				Name:         ontologyName,
+				Functions:    make(map[string]FunctionDef),
+				AccessGroups: make(map[string]AccessGroupDef),
+			}
+			config.AccessGroups["public"] = AccessGroupDef{Description: "Unauthenticated users"}
+			log.Println("Using default config")
+			return nil
 		}
+		// Try loading again
+		configPath = filepath.Join(cwd, ".ont", "config.json")
 	}
 
-	// Use bun or node to load the config
-	// For simplicity, we'll use a mock config for now
-	// In production, you'd want to either:
-	// 1. Generate a JSON file from TS config
-	// 2. Use a TS loader/evaluator
-	// 3. Require users to provide JSON config
-	config = &OntologyConfig{
-		Name:         ontologyName,
-		Functions:    make(map[string]FunctionDef),
-		AccessGroups: make(map[string]AccessGroupDef),
+	// Load config from JSON
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to read config: %v", err)
 	}
 
-	// Add default access groups
-	config.AccessGroups["public"] = AccessGroupDef{Description: "Unauthenticated users"}
-	config.AccessGroups["user"] = AccessGroupDef{Description: "Authenticated users"}
-	config.AccessGroups["admin"] = AccessGroupDef{Description: "Administrators"}
+	config = &OntologyConfig{}
+	if err := json.Unmarshal(data, config); err != nil {
+		return fmt.Errorf("failed to parse config: %v", err)
+	}
 
-	log.Println("Loaded ontology config")
+	if config.Name != "" {
+		ontologyName = config.Name
+	}
+
+	log.Printf("Loaded ontology config: %s", ontologyName)
+	return nil
+}
+
+// exportConfig exports the TypeScript config to JSON
+func exportConfig(dir string) error {
+	// Create .ont directory
+	ontDir := filepath.Join(dir, ".ont")
+	if err := os.MkdirAll(ontDir, 0755); err != nil {
+		return err
+	}
+
+	// Try to find the export script
+	scriptPath := filepath.Join(dir, "node_modules", "ont-run", "scripts", "export-config.ts")
+	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+		// Try relative path for development
+		scriptPath = filepath.Join(dir, "..", "scripts", "export-config.ts")
+	}
+
+	// Try bun first, then node with tsx
+	var cmd *exec.Cmd
+	if _, err := exec.LookPath("bun"); err == nil {
+		cmd = exec.Command("bun", "run", scriptPath)
+	} else {
+		cmd = exec.Command("npx", "tsx", scriptPath)
+	}
+	cmd.Dir = dir
+
+	output, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to export config: %v", err)
+	}
+
+	// Write to config.json
+	configPath := filepath.Join(ontDir, "config.json")
+	if err := os.WriteFile(configPath, output, 0644); err != nil {
+		return err
+	}
+
+	log.Printf("Exported config to %s", configPath)
 	return nil
 }
 
@@ -110,13 +161,12 @@ func loadConfig() error {
 func authMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// For now, default to public access
-		// In production, this would call the user's auth function
+		// In production, this would call the user's auth function via a bridge
 		accessGroups := []string{"public"}
 
-		// Check for Authorization header
+		// Simple token-based auth (mock)
 		token := c.GetHeader("Authorization")
 		if token != "" {
-			// Simple token-based auth (mock)
 			if strings.HasPrefix(token, "Bearer ") {
 				accessGroups = []string{"user", "public"}
 			}
@@ -170,50 +220,54 @@ func accessControlMiddleware(requiredAccess []string) gin.HandlerFunc {
 	}
 }
 
-// executeResolver calls the TypeScript resolver
+// executeResolver calls the TypeScript resolver via bridge
 func executeResolver(functionName string, args interface{}, ctx ResolverContext) (interface{}, error) {
-	// For production, we need to call the TypeScript resolver
-	// Options:
-	// 1. Spawn Node/Bun process to execute the resolver
-	// 2. Use a bridge/IPC mechanism
-	// 3. Require resolvers to be rewritten in Go (not ideal)
+	log.Printf("Executing resolver: %s", functionName)
 	
-	// For now, return a mock response
-	log.Printf("Executing resolver: %s with args: %v", functionName, args)
-	
-	// Try to execute TypeScript resolver via Node/Bun
-	argsJSON, err := json.Marshal(args)
-	if err != nil {
-		return nil, err
-	}
-	
-	ctxJSON, err := json.Marshal(ctx)
-	if err != nil {
-		return nil, err
-	}
+	// Prepare bridge script that imports and executes the resolver
+	argsJSON, _ := json.Marshal(args)
+	ctxJSON, _ := json.Marshal(ctx)
 
-	// Create a simple bridge script
-	script := fmt.Sprintf(`
-		const resolver = require('./resolvers/%s.js').default;
-		const args = %s;
-		const ctx = %s;
-		resolver(ctx, args).then(result => {
-			console.log(JSON.stringify(result));
-		}).catch(err => {
-			console.error(err);
-			process.exit(1);
-		});
-	`, functionName, string(argsJSON), string(ctxJSON))
+	// Create a temporary bridge script
+	bridgeScript := fmt.Sprintf(`
+import { loadConfig } from 'ont-run/config';
 
-	cmd := exec.Command("node", "-e", script)
-	output, err := cmd.Output()
+const { config } = await loadConfig();
+const fn = config.functions['%s'];
+if (!fn) {
+  console.error('Function not found: %s');
+  process.exit(1);
+}
+
+const ctx = %s;
+const args = %s;
+
+try {
+  const result = await fn.resolver(ctx, args);
+  console.log(JSON.stringify(result));
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
+}
+`, functionName, functionName, string(ctxJSON), string(argsJSON))
+
+	// Execute via bun or node
+	var cmd *exec.Cmd
+	if _, err := exec.LookPath("bun"); err == nil {
+		cmd = exec.Command("bun", "eval", bridgeScript)
+	} else {
+		cmd = exec.Command("node", "--input-type=module", "-e", bridgeScript)
+	}
+	cmd.Dir = configDir
+
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("resolver execution failed: %v", err)
+		return nil, fmt.Errorf("resolver execution failed: %v, output: %s", err, string(output))
 	}
 
 	var result interface{}
 	if err := json.Unmarshal(output, &result); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse resolver output: %v, output: %s", err, string(output))
 	}
 
 	return result, nil
@@ -294,6 +348,7 @@ func setupRoutes(router *gin.Engine) {
 			// Execute resolver
 			result, err := executeResolver(funcName, args, resolverCtx)
 			if err != nil {
+				log.Printf("Resolver error: %v", err)
 				c.JSON(http.StatusInternalServerError, ErrorResponse{
 					Error:   "Resolver failed",
 					Message: err.Error(),
@@ -350,9 +405,14 @@ func main() {
 
 	// Start server
 	addr := ":" + port
-	log.Printf("Starting Go backend server on http://localhost%s", addr)
+	log.Printf("========================================")
+	log.Printf("Go Backend Server")
+	log.Printf("========================================")
+	log.Printf("URL: http://localhost%s", addr)
 	log.Printf("Environment: %s", environment)
+	log.Printf("Ontology: %s", ontologyName)
 	log.Printf("Functions: %d", len(config.Functions))
+	log.Printf("========================================")
 	
 	if err := router.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)

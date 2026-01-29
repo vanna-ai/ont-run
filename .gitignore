@@ -10,6 +10,9 @@ server/ont-server
 *.so
 *.dylib
 
+# Ontology config cache
+.ont/
+
 # Test project (for development only)
 test-project/
 tmp/
