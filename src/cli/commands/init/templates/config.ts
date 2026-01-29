@@ -141,6 +141,12 @@ export default defineOntology({
 export const buildTemplate = `import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import devServer from '@hono/vite-dev-server';
+import { register } from 'tsx/esm/api';
+
+// Register TypeScript loader for ontology config
+if (process.env.NODE_ENV !== 'production') {
+  register();
+}
 
 export default defineConfig({
   plugins: [
