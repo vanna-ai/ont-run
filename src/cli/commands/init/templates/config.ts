@@ -154,6 +154,9 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist/client',
+    rollupOptions: {
+      input: './src/index.html',
+    },
   },
 });
 `;

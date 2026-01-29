@@ -1,7 +1,7 @@
 import { defineCommand } from "citty";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "fs";
 import { spawn } from "child_process";
-import { join } from "path";
+import { join, resolve, isAbsolute } from "path";
 import consola from "consola";
 
 import {
@@ -64,7 +64,11 @@ export const initCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const targetDir = args.dir === "." ? process.cwd() : join(process.cwd(), args.dir);
+    const targetDir = args.dir === "." 
+      ? process.cwd() 
+      : isAbsolute(args.dir) 
+        ? args.dir 
+        : join(process.cwd(), args.dir);
 
     consola.info(`Initializing full-stack Ontology project in ${targetDir}`);
 
