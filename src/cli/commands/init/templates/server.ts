@@ -3,8 +3,14 @@
 // ============================================================================
 
 export const serverTemplate = `import { createApiApp, createMcpApp, loadConfig } from "ont-run";
-// HTML import - Bun's bundler will transpile TSX/CSS automatically
-import index from "./index.html";
+import { serve } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const { config, configDir, configPath } = await loadConfig();
 const env = process.env.NODE_ENV === "production" ? "prod" : "dev";
@@ -12,26 +18,56 @@ const env = process.env.NODE_ENV === "production" ? "prod" : "dev";
 const api = createApiApp({ config, configDir, configPath, env });
 const mcp = await createMcpApp({ config, env });
 
-const server = Bun.serve({
-  port: Number(process.env.PORT) || 3000,
-  routes: {
-    // HTML route - Bun handles bundling and transpilation
-    "/": index,
-    // API routes (wildcard must come before SPA fallback)
-    "/api/*": (req: Request) => api.fetch(req),
-    // Health check
-    "/health": (req: Request) => api.fetch(req),
-    // MCP endpoint (POST for JSON-RPC, GET for SSE)
-    "/mcp": (req: Request) => mcp.fetch(req),
-    // SPA fallback - serve index.html for client-side routing
-    "/*": index,
+// In production, serve static files
+if (process.env.NODE_ENV === "production") {
+  // Serve static files from dist/client
+  api.use("/*", serveStatic({ root: "./dist/client" }));
+  
+  // Fallback to index.html for client-side routing (SPA)
+  api.get("/*", (c) => {
+    try {
+      const html = readFileSync(join(__dirname, "..", "dist", "client", "index.html"), "utf-8");
+      return c.html(html);
+    } catch (error) {
+      return c.text("index.html not found. Run 'npm run build' first.", 404);
+    }
+  });
+}
+
+const port = Number(process.env.PORT) || 3000;
+
+serve({
+  fetch: (req) => {
+    const url = new URL(req.url);
+    
+    // Route API requests
+    if (url.pathname.startsWith("/api/") || url.pathname === "/health") {
+      return api.fetch(req);
+    }
+    
+    // Route MCP requests
+    if (url.pathname === "/mcp") {
+      return mcp.fetch(req);
+    }
+    
+    // In development, Vite handles frontend
+    // In production, serve static files
+    if (process.env.NODE_ENV === "production") {
+      return api.fetch(req);
+    }
+    
+    // In dev, return helpful message (Vite serves the frontend)
+    return new Response("Frontend is served by Vite dev server", { status: 404 });
   },
-  development: process.env.NODE_ENV !== "production",
+  port,
 });
 
-console.log(\`Server: http://localhost:\${server.port}\`);
-console.log(\`API: http://localhost:\${server.port}/api\`);
-console.log(\`MCP: http://localhost:\${server.port}/mcp\`);
+console.log(\`Server: http://localhost:\${port}\`);
+console.log(\`API: http://localhost:\${port}/api\`);
+console.log(\`MCP: http://localhost:\${port}/mcp\`);
+if (process.env.NODE_ENV !== "production") {
+  console.log(\`Frontend: Run 'npm run dev' to start Vite dev server\`);
+}
 `;
 
 export const htmlTemplate = `<!DOCTYPE html>

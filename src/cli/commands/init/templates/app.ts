@@ -3,7 +3,7 @@
 // ============================================================================
 
 export const frontendTemplate = `import { createRoot } from "react-dom/client";
-import { BrowserRouter } from "react-router";
+import { BrowserRouter } from "react-router-dom";
 import { App } from "./App";
 
 createRoot(document.getElementById("root")!).render(
@@ -13,7 +13,7 @@ createRoot(document.getElementById("root")!).render(
 );
 `;
 
-export const appTemplate = `import { Routes, Route } from "react-router";
+export const appTemplate = `import { Routes, Route } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { Home } from "./routes/home";
 import { Dashboard } from "./routes/dashboard";

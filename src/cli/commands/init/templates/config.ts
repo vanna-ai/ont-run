@@ -138,42 +138,27 @@ export default defineOntology({
 });
 `;
 
-export const buildTemplate = `import { $ } from "bun";
+export const buildTemplate = `import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { createServer } from '@hono/vite-dev-server';
 
-console.log("Building for production...");
-
-// Build frontend assets
-const result = await Bun.build({
-  entrypoints: ["./src/frontend.tsx"],
-  outdir: "./dist",
-  minify: true,
-  sourcemap: "external",
+export default defineConfig({
   plugins: [
-    // @ts-ignore - bun-plugin-tailwind types
-    (await import("bun-plugin-tailwind")).default,
+    react(),
+    createServer({
+      entry: 'src/index.ts',
+    }),
   ],
+  build: {
+    outDir: 'dist/client',
+    rollupOptions: {
+      input: './src/index.html',
+    },
+  },
 });
-
-if (!result.success) {
-  console.error("Build failed:");
-  for (const log of result.logs) {
-    console.error(log);
-  }
-  process.exit(1);
-}
-
-// Copy HTML and update paths for production
-const html = await Bun.file("./src/index.html").text();
-const prodHtml = html
-  .replace('./index.css', '/index.css')
-  .replace('./frontend.tsx', '/frontend.js');
-await Bun.write("./dist/index.html", prodHtml);
-
-console.log("Build complete! Output in ./dist");
 `;
 
-export const bunfigTemplate = `[serve.static]
-plugins = ["bun-plugin-tailwind"]
+export const bunfigTemplate = `# No longer needed - using Vite instead
 `;
 
 export const tsconfigTemplate = `{

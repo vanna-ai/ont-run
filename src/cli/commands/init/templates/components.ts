@@ -2,7 +2,7 @@
 // Component Templates
 // ============================================================================
 
-export const layoutTemplate = `import { Link, Outlet, useLocation } from "react-router";
+export const layoutTemplate = `import { Link, Outlet, useLocation } from "react-router-dom";
 import { Home, LayoutDashboard, Info } from "lucide-react";
 
 const navItems = [
