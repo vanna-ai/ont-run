@@ -1,7 +1,7 @@
 import { defineCommand } from "citty";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "fs";
 import { spawn } from "child_process";
-import { join, resolve, isAbsolute } from "path";
+import { join, isAbsolute } from "path";
 import consola from "consola";
 
 import {

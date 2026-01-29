@@ -36,8 +36,9 @@
     "test:init": "(TESTDIR=$(mktemp -d /tmp/ont-run-test-XXXX) && node dist/bin/ont.js init $TESTDIR)",
     "test:init:nonempty": "(TESTDIR=$(mktemp -d /tmp/ont-run-test-XXXX) && touch $TESTDIR/foo.txt && node dist/bin/ont.js init $TESTDIR)",
     "test:init:nobun": "docker run --rm -i -v $(pwd):/ont -w /app node:22 bash -c 'npm pack /ont && echo y | npx ont-run-*.tgz init my-project'",
-    "test:run": "(TESTDIR=$(mktemp -d /tmp/ont-run-test-XXXX) && node dist/bin/ont.js init $TESTDIR && cd $TESTDIR && npm install && npm run dev)",
-    "test:review": "(TESTDIR=$(mktemp -d /tmp/ont-run-test-XXXX) && node dist/bin/ont.js init $TESTDIR && cd $TESTDIR && npm install && npm run review)"
+    "test:build": "(TESTDIR=$(mktemp -d /tmp/ont-run-test-XXXX) && node dist/bin/ont.js init $TESTDIR && cd $TESTDIR && npm run typecheck && npm run build && echo '✓ test:build passed')",
+    "test:run": "(TESTDIR=$(mktemp -d /tmp/ont-run-test-XXXX) && node dist/bin/ont.js init $TESTDIR && cd $TESTDIR && timeout 10 npm run dev || ([ $? -eq 124 ] && echo '✓ test:run passed - dev server started successfully'))",
+    "test:review": "(TESTDIR=$(mktemp -d /tmp/ont-run-test-XXXX) && node dist/bin/ont.js init $TESTDIR && cd $TESTDIR && npm run review)"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.8",
