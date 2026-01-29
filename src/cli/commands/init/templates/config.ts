@@ -140,9 +140,11 @@ export default defineOntology({
 
 export const buildTemplate = `import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
+  root: 'src',
   server: {
     port: 5173,
     proxy: {
@@ -161,10 +163,10 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: 'dist/client',
+    outDir: '../dist/client',
     emptyOutDir: true,
     rollupOptions: {
-      input: 'src/index.html',
+      input: 'index.html',
     },
   },
 });

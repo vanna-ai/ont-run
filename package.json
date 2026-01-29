@@ -33,12 +33,12 @@
     "docs": "cd docs && npm run dev",
     "docs:build": "cd docs && npm run build",
     "docs:preview": "cd docs && npm run preview",
-    "test:init": "(TESTDIR=$(mktemp -d /tmp/ont-run-test-XXXX) && node dist/bin/ont.js init $TESTDIR)",
+    "test:init": "(ONTDIR=$(pwd) && TESTDIR=$(mktemp -d /tmp/ont-run-test-XXXX) && node dist/bin/ont.js init $TESTDIR && cd $TESTDIR && npm install $ONTDIR)",
     "test:init:nonempty": "(TESTDIR=$(mktemp -d /tmp/ont-run-test-XXXX) && touch $TESTDIR/foo.txt && node dist/bin/ont.js init $TESTDIR)",
     "test:init:nobun": "docker run --rm -i -v $(pwd):/ont -w /app node:22 bash -c 'npm pack /ont && echo y | npx ont-run-*.tgz init my-project'",
-    "test:build": "(TESTDIR=$(mktemp -d /tmp/ont-run-test-XXXX) && node dist/bin/ont.js init $TESTDIR && cd $TESTDIR && npm run typecheck && npm run build && echo '✓ test:build passed')",
-    "test:run": "(TESTDIR=$(mktemp -d /tmp/ont-run-test-XXXX) && node dist/bin/ont.js init $TESTDIR && cd $TESTDIR && (npm run dev:server > /tmp/ont-backend.log 2>&1 &) && BACKEND_PID=$! && sleep 2 && (npm run dev:vite > /tmp/ont-frontend.log 2>&1 &) && FRONTEND_PID=$! && sleep 13 && curl -f http://localhost:3000/health && echo ' ← backend working' && curl -f -s http://localhost:5173/ | head -3 && echo '... ← frontend HTML' && curl -f http://localhost:5173/health && echo ' ← proxy working' && echo '✓ test:run passed!' && kill $BACKEND_PID $FRONTEND_PID 2>/dev/null || true)",
-    "test:review": "(TESTDIR=$(mktemp -d /tmp/ont-run-test-XXXX) && node dist/bin/ont.js init $TESTDIR && cd $TESTDIR && npm run review)"
+    "test:build": "(ONTDIR=$(pwd) && TESTDIR=$(mktemp -d /tmp/ont-run-test-XXXX) && node dist/bin/ont.js init $TESTDIR && cd $TESTDIR && npm install $ONTDIR && npm run typecheck && npm run build && echo '✓ test:build passed')",
+    "test:run": "(ONTDIR=$(pwd) && TESTDIR=$(mktemp -d /tmp/ont-run-test-XXXX) && node dist/bin/ont.js init $TESTDIR && cd $TESTDIR && npm install $ONTDIR && (npm run dev:server > /tmp/ont-backend.log 2>&1 &) && BACKEND_PID=$! && sleep 2 && (npm run dev:vite > /tmp/ont-frontend.log 2>&1 &) && FRONTEND_PID=$! && sleep 13 && curl -f http://localhost:3000/health && echo ' ← backend working' && curl -f -s http://localhost:5173/ | head -3 && echo '... ← frontend HTML' && curl -f http://localhost:5173/health && echo ' ← proxy working' && echo '✓ test:run passed!' && kill $BACKEND_PID $FRONTEND_PID 2>/dev/null || true)",
+    "test:review": "(ONTDIR=$(pwd) && TESTDIR=$(mktemp -d /tmp/ont-run-test-XXXX) && node dist/bin/ont.js init $TESTDIR && cd $TESTDIR && npm install $ONTDIR && npm run review)"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.8",

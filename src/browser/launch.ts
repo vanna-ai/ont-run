@@ -38,7 +38,7 @@ export async function launchReviewInBackground(options: LaunchReviewOptions): Pr
       configDir,
       configPath,
       background: true,
-      openBrowser: true,
+      openBrowser: false,
     });
   } catch (error) {
     // Fire-and-forget: log errors but don't crash the server
