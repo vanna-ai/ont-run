@@ -5,7 +5,7 @@ type AnyHono = { fetch: (request: Request, ...args: any[]) => Response | Promise
  * Check if we're running in Bun
  */
 export function isBun(): boolean {
-  return typeof globalThis.Bun !== "undefined";
+  return typeof (globalThis as any).Bun !== "undefined";
 }
 
 /**
@@ -42,7 +42,9 @@ export async function serve(
   port: number
 ): Promise<ServerHandle> {
   if (isBun()) {
-    const server = Bun.serve({
+    // Bun runtime - use Bun.serve
+    const BunGlobal = (globalThis as any).Bun;
+    const server = BunGlobal.serve({
       port,
       fetch: app.fetch,
       // Disable idle timeout for SSE/streaming connections
@@ -77,9 +79,11 @@ export async function serve(
  */
 export async function findAvailablePort(startPort: number = 3456): Promise<number> {
   if (isBun()) {
+    // Bun runtime - use Bun.serve
+    const BunGlobal = (globalThis as any).Bun;
     for (let port = startPort; port < startPort + 100; port++) {
       try {
-        const server = Bun.serve({
+        const server = BunGlobal.serve({
           port,
           fetch: () => new Response("test"),
         });

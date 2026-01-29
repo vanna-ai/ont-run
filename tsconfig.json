@@ -13,7 +13,7 @@
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["bun-types"]
+    "types": ["node"]
   },
   "include": ["src/**/*", "bin/**/*"],
   "exclude": ["node_modules", "dist", "src/server/mcp/apps/visualizer"]
