@@ -186,7 +186,7 @@ export const initCommand = defineCommand({
       "@types/node": "^20.0.0",
       "@types/react": "^19",
       "@types/react-dom": "^19",
-      "@vitejs/plugin-react": "^4.2.0",
+      "@vitejs/plugin-react": "^5.1.0",
       "@tailwindcss/vite": "^4.1.11",
       concurrently: "^9.0.0",
       tailwindcss: "^4.1.11",

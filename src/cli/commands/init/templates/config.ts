@@ -141,6 +141,7 @@ export default defineOntology({
 export const buildTemplate = `import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -166,7 +167,7 @@ export default defineConfig({
     outDir: '../dist/client',
     emptyOutDir: true,
     rollupOptions: {
-      input: 'index.html',
+      input: resolve(__dirname, 'src/index.html'),
     },
   },
 });
