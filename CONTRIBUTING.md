@@ -32,29 +32,52 @@ bun run server.ts
 ```
 ont/
 ├── bin/ont.ts              # CLI entry point
+├── server/                 # Go backend
+│   ├── main.go             # HTTP API server (Go)
+│   └── ont-server          # Compiled Go binary (gitignored)
 ├── src/
 │   ├── index.ts            # Public exports
 │   ├── cli/                # CLI commands (init, review)
 │   ├── config/             # defineOntology() and types
 │   ├── lockfile/           # Hashing and diffing logic
 │   ├── server/
-│   │   ├── api/            # Hono REST server
+│   │   ├── start-go.ts     # Go backend launcher
+│   │   ├── api/            # (Legacy TypeScript server)
 │   │   └── mcp/            # MCP server
-│   ├── review/             # Browser-based review UI
-│   └── runtime/            # Bun/Node.js runtime detection
+│   ├── browser/            # Browser-based review UI
+│   └── runtime/            # Runtime utilities
+├── go.mod                  # Go dependencies
+├── go.sum                  # Go dependency checksums
 ├── dist/                   # Built output (generated)
 └── test-project/           # Local test project (gitignored)
 ```
 
 ## Building
 
+ont-run uses a hybrid architecture with a Go backend and TypeScript configuration layer.
+
 ```bash
-# Build for Node.js distribution
+# Build the Go backend server
+cd server
+go build -o ont-server main.go
+
+# Or use the npm/bun script (from root)
+bun run build:go      # Builds the Go server
+
+# Build TypeScript components
 bun run build         # Builds src/index.ts -> dist/index.js
 bun run build:cli     # Builds bin/ont.ts -> dist/bin/ont.js
 
-# Both are run automatically on npm publish via prepublishOnly
+# Build everything
+bun run build         # Runs build:go then builds TypeScript
 ```
+
+The build process:
+1. **Go server** (`server/ont-server`) - The HTTP API server binary
+2. **TypeScript library** (`dist/`) - Config loader, CLI, and utilities  
+3. **CLI** (`dist/bin/ont.js`) - The ont-run CLI tool
+
+All are built automatically on npm publish via `prepublishOnly`.
 
 ## Testing Changes
 

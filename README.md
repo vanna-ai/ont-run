@@ -75,6 +75,17 @@ WARN  Run `bunx ont-run review` to approve these changes.
 
 **Why not just prompts?** The ontology is the source of truth. The framework won't run if it changes without human review.
 
+## Architecture
+
+ont-run uses a **Go backend** for high-performance HTTP server operations, combined with **TypeScript** for configuration and resolver logic. This hybrid approach provides:
+
+- **Fast API server**: Go handles all HTTP routing, middleware, and request processing
+- **Flexible resolvers**: Keep your business logic in TypeScript/JavaScript
+- **Type safety**: Zod schemas ensure type-safe APIs
+- **Cross-runtime support**: Works with Bun, Node.js, and standalone Go deployments
+
+The Go server communicates with TypeScript resolvers through a bridge mechanism, executing your resolver functions while maintaining the performance benefits of a compiled backend.
+
 ## Installation
 
 ```bash

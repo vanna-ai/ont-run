@@ -34,8 +34,8 @@
 // Main API
 export { defineOntology, defineFunction } from "./config/define.js";
 export { fieldFrom, userContext } from "./config/categorical.js";
-export { startOnt } from "./server/start.js";
-export type { StartOntOptions, StartOntResult } from "./server/start.js";
+export { startOnt } from "./server/start-go.js";
+export type { StartOntOptions, StartOntResult } from "./server/start-go.js";
 
 // Server utilities for custom server setup
 export { createApiApp } from "./server/api/index.js";

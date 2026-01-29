@@ -3,6 +3,13 @@ dist/
 *.log
 .DS_Store
 
+# Go build artifacts
+server/ont-server
+*.exe
+*.dll
+*.so
+*.dylib
+
 # Test project (for development only)
 test-project/
 tmp/
