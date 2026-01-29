@@ -160,7 +160,9 @@ export const initCommand = defineCommand({
     packageJson.type = "module";
     packageJson.scripts = {
       ...(packageJson.scripts as Record<string, string> || {}),
-      dev: "vite",
+      dev: "concurrently \"npm run dev:server\" \"npm run dev:vite\"",
+      "dev:server": "tsx watch src/index.ts",
+      "dev:vite": "vite",
       build: "vite build",
       start: "NODE_ENV=production tsx src/index.ts",
       preview: "vite preview",
@@ -181,11 +183,11 @@ export const initCommand = defineCommand({
     };
     packageJson.devDependencies = {
       ...(packageJson.devDependencies as Record<string, string> || {}),
-      "@hono/vite-dev-server": "^0.24.1",
       "@types/node": "^20.0.0",
       "@types/react": "^19",
       "@types/react-dom": "^19",
       "@vitejs/plugin-react": "^4.0.0",
+      concurrently: "^9.0.0",
       tailwindcss: "^4.1.11",
       tsx: "^4.0.0",
       typescript: "^5.5.0",

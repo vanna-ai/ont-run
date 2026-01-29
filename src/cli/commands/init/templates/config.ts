@@ -140,28 +140,32 @@ export default defineOntology({
 
 export const buildTemplate = `import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import devServer from '@hono/vite-dev-server';
-import { register } from 'tsx/esm/api';
-
-// Register TypeScript loader for ontology config
-if (process.env.NODE_ENV !== 'production') {
-  register();
-}
 
 export default defineConfig({
-  plugins: [
-    react(),
-    devServer({
-      entry: 'src/index.ts',
-    }),
-  ],
+  root: 'src',
+  plugins: [react()],
   server: {
     port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+      '/health': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+      '/mcp': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+    },
   },
   build: {
-    outDir: 'dist/client',
+    outDir: '../dist/client',
+    emptyOutDir: true,
     rollupOptions: {
-      input: './src/index.html',
+      input: './index.html',
     },
   },
 });

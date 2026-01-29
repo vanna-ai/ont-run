@@ -31,22 +31,23 @@ if (env === "prod") {
   
   // Fallback to index.html for client-side routing (SPA)
   app.get("*", serveStatic({ path: "./dist/client/index.html" }));
-  
-  // Start server in production
-  const port = Number(process.env.PORT) || 3000;
-  console.log(\`Starting production server on port \${port}...\`);
-  
-  serve({
-    fetch: app.fetch,
-    port,
-  });
-  
-  console.log(\`✓ Server running at http://localhost:\${port}\`);
-  console.log(\`✓ API: http://localhost:\${port}/api\`);
-  console.log(\`✓ MCP: http://localhost:\${port}/mcp\`);
 }
 
-export default app;
+// Start server (both dev and prod)
+const port = Number(process.env.PORT) || 3000;
+console.log(\`Starting \${env} server on port \${port}...\`);
+
+serve({
+  fetch: app.fetch,
+  port,
+});
+
+console.log(\`✓ Server running at http://localhost:\${port}\`);
+console.log(\`✓ API: http://localhost:\${port}/api\`);
+console.log(\`✓ MCP: http://localhost:\${port}/mcp\`);
+if (env === "dev") {
+  console.log(\`✓ Frontend: Run 'npm run dev:vite' in another terminal\`);
+}
 `;
 
 export const htmlTemplate = `<!DOCTYPE html>
