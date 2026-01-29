@@ -26,6 +26,7 @@
     "src",
     "bin",
     "server",
+    "scripts",
     "go.mod",
     "go.sum"
   ],

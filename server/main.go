@@ -126,16 +126,35 @@ func exportConfig(dir string) error {
 		return err
 	}
 
-	// Try to find the export script
-	scriptPath := filepath.Join(dir, "node_modules", "ont-run", "scripts", "export-config.ts")
-	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+	// Try to find the export script - look for .mjs (compiled) first, then .ts
+	scriptPath := ""
+	mjsPath := filepath.Join(dir, "node_modules", "ont-run", "scripts", "export-config.mjs")
+	tsPath := filepath.Join(dir, "node_modules", "ont-run", "scripts", "export-config.ts")
+	
+	if _, err := os.Stat(mjsPath); err == nil {
+		scriptPath = mjsPath
+	} else if _, err := os.Stat(tsPath); err == nil {
+		scriptPath = tsPath
+	} else {
 		// Try relative path for development
-		scriptPath = filepath.Join(dir, "..", "scripts", "export-config.ts")
+		mjsPath = filepath.Join(dir, "..", "scripts", "export-config.mjs")
+		tsPath = filepath.Join(dir, "..", "scripts", "export-config.ts")
+		if _, err := os.Stat(mjsPath); err == nil {
+			scriptPath = mjsPath
+		} else if _, err := os.Stat(tsPath); err == nil {
+			scriptPath = tsPath
+		}
 	}
 
-	// Try bun first, then node with tsx
+	if scriptPath == "" {
+		return fmt.Errorf("export-config script not found")
+	}
+
+	// Execute based on file extension
 	var cmd *exec.Cmd
-	if _, err := exec.LookPath("bun"); err == nil {
+	if strings.HasSuffix(scriptPath, ".mjs") {
+		cmd = exec.Command("node", scriptPath)
+	} else if _, err := exec.LookPath("bun"); err == nil {
 		cmd = exec.Command("bun", "run", scriptPath)
 	} else {
 		cmd = exec.Command("npx", "tsx", scriptPath)
