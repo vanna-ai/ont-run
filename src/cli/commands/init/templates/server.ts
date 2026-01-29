@@ -15,9 +15,9 @@ const mcp = await createMcpApp({ config, env });
 // Create a combined app
 const app = new Hono();
 
-// Mount API routes
-app.route("/api", api);
-app.get("/health", (c) => api.fetch(c.req.raw));
+// Mount API and health routes (api includes /health and /api/*)
+// IMPORTANT: DO NOT ADD ROUTES HERE. YOU MUST EDIT ontology.config.ts
+app.route("/", api);
 
 // Mount MCP endpoint
 app.all("/mcp", (c) => mcp.fetch(c.req.raw));
