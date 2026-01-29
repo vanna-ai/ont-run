@@ -186,13 +186,13 @@ export const initCommand = defineCommand({
       "@types/node": "^20.0.0",
       "@types/react": "^19",
       "@types/react-dom": "^19",
-      "@vitejs/plugin-react": "^4.0.0",
+      "@vitejs/plugin-react": "^4.2.0",
       "@tailwindcss/vite": "^4.1.11",
       concurrently: "^9.0.0",
       tailwindcss: "^4.1.11",
       tsx: "^4.0.0",
       typescript: "^5.5.0",
-      vite: "^5.0.0",
+      vite: "^7.3.0",
     };
 
     writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
