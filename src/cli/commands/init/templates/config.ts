@@ -140,20 +140,20 @@ export default defineOntology({
 
 export const buildTemplate = `import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { createServer } from '@hono/vite-dev-server';
+import devServer from '@hono/vite-dev-server';
 
 export default defineConfig({
   plugins: [
     react(),
-    createServer({
+    devServer({
       entry: 'src/index.ts',
     }),
   ],
+  server: {
+    port: 5173,
+  },
   build: {
     outDir: 'dist/client',
-    rollupOptions: {
-      input: './src/index.html',
-    },
   },
 });
 `;
@@ -179,7 +179,7 @@ export const tsconfigTemplate = `{
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false,
-    "types": ["bun"]
+    "types": ["node"]
   }
 }
 `;

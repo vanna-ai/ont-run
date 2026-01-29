@@ -156,17 +156,17 @@ export const initCommand = defineCommand({
     packageJson.type = "module";
     packageJson.scripts = {
       ...(packageJson.scripts as Record<string, string> || {}),
-      dev: "concurrently \"npm run dev:server\" \"npm run dev:vite\"",
-      "dev:server": "tsx watch src/index.ts",
-      "dev:vite": "vite",
-      build: "vite build && tsc --noEmit",
-      start: "NODE_ENV=production node --loader tsx src/index.ts",
+      dev: "vite",
+      build: "vite build",
+      start: "NODE_ENV=production tsx src/index.ts",
+      preview: "vite preview",
       review: "npx ont-run review",
       typecheck: "tsc --noEmit",
     };
     packageJson.dependencies = {
       ...(packageJson.dependencies as Record<string, string> || {}),
       "@hono/node-server": "^1.19.8",
+      hono: "^4.6.0",
       "ont-run": "latest",
       react: "^19.0.0",
       "react-dom": "^19.0.0",
@@ -182,7 +182,6 @@ export const initCommand = defineCommand({
       "@types/react": "^19",
       "@types/react-dom": "^19",
       "@vitejs/plugin-react": "^4.0.0",
-      concurrently: "^8.0.0",
       tailwindcss: "^4.1.11",
       tsx: "^4.0.0",
       typescript: "^5.5.0",
@@ -210,9 +209,10 @@ export const initCommand = defineCommand({
         "Next steps:\n" +
         "  1. cd " + (args.dir === "." ? "." : args.dir) + "\n" +
         "  2. Run `npm run review` to approve the initial ontology\n" +
-        "  3. Run `npm run dev` to start the dev servers\n\n" +
-        "Your app will be available at http://localhost:5173 (Vite)\n" +
-        "API endpoints at http://localhost:3000/api"
+        "  3. Run `npm run dev` to start the dev server\n\n" +
+        "Your app will be available at http://localhost:5173\n" +
+        "API endpoints at http://localhost:5173/api\n" +
+        "MCP server at http://localhost:5173/mcp"
     );
   },
 });
