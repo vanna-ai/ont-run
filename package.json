@@ -29,7 +29,7 @@
   "scripts": {
     "dev": "tsx bin/ont.ts",
     "build": "tsup src/index.ts --format esm --dts --sourcemap",
-    "build:cli": "tsup bin/ont.ts --format esm --outDir dist/bin --external @modelcontextprotocol/sdk --external zod --shims && node -e \"const fs=require('fs');const f='./dist/bin/ont.js';let c=fs.readFileSync(f,'utf8');c='#!/usr/bin/env node\\n'+c;fs.writeFileSync(f,c);fs.chmodSync(f,0o755);\"",
+    "build:cli": "tsup bin/ont.ts --format esm --outDir dist/bin --external @modelcontextprotocol/sdk --external zod --no-shims && node -e \"const fs=require('fs');const f='./dist/bin/ont.js';let c=fs.readFileSync(f,'utf8');c='#!/usr/bin/env node\\n'+c.replace(/^#!.*\\n/gm,'');fs.writeFileSync(f,c);fs.chmodSync(f,0o755);\"",
     "build:types": "tsc --declaration --emitDeclarationOnly",
     "build:apps": "tsx scripts/bundle-apps.ts",
     "prepublishOnly": "npm run build:apps && npm run build && npm run build:cli && npm run build:types",
