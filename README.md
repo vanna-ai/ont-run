@@ -77,14 +77,14 @@ WARN  Run `bunx ont-run review` to approve these changes.
 
 ## Architecture
 
-ont-run uses a **Go backend** for high-performance HTTP server operations, combined with **TypeScript** for configuration and resolver logic. This hybrid approach provides:
+ont-run uses a **Go backend** for HTTP server operations, combined with **TypeScript** for configuration and resolver logic. This hybrid approach provides:
 
-- **Fast API server**: Go handles all HTTP routing, middleware, and request processing
+- **Efficient API server**: Go handles all HTTP routing, middleware, and request processing
 - **Flexible resolvers**: Keep your business logic in TypeScript/JavaScript
 - **Type safety**: Zod schemas ensure type-safe APIs
 - **Cross-runtime support**: Works with Bun, Node.js, and standalone Go deployments
 
-The Go server communicates with TypeScript resolvers through a bridge mechanism, executing your resolver functions while maintaining the performance benefits of a compiled backend.
+The Go server communicates with TypeScript resolvers through a bridge mechanism, executing your resolver functions.
 
 ## Installation
 
@@ -97,6 +97,11 @@ npx ont-run init my-api
 ```
 
 This creates a new project with the ont-run framework configured.
+
+**Note:** The Go backend server will be built automatically during installation. If you encounter issues, you can manually build it with:
+```bash
+cd node_modules/ont-run/server && go build -o ont-server main.go
+```
 
 ## Quick Start
 

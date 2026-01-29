@@ -179,11 +179,18 @@ func exportConfig(dir string) error {
 // authMiddleware handles authentication and sets access groups
 func authMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// For now, default to public access
-		// In production, this would call the user's auth function via a bridge
+		// WARNING: This is a mock auth implementation for development/testing only
+		// TODO: Implement actual auth function bridge to call user's auth() from config
+		
+		// Log warning in production mode
+		if environment == "prod" {
+			log.Println("WARNING: Using mock authentication in production mode!")
+		}
+		
+		// Default to public access
 		accessGroups := []string{"public"}
 
-		// Simple token-based auth (mock)
+		// Simple token-based auth (mock - DO NOT USE IN PRODUCTION)
 		token := c.GetHeader("Authorization")
 		if token != "" {
 			if strings.HasPrefix(token, "Bearer ") {
@@ -405,9 +412,17 @@ func main() {
 
 	router := gin.Default()
 
-	// Enable CORS
+	// Enable CORS with configurable origin
+	corsOrigin := os.Getenv("CORS_ORIGIN")
+	if corsOrigin == "" {
+		if environment == "prod" {
+			log.Println("WARNING: CORS_ORIGIN not set in production, defaulting to *")
+		}
+		corsOrigin = "*"
+	}
+	
 	router.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Origin", corsOrigin)
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		

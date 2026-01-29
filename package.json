@@ -25,14 +25,15 @@
     "dist",
     "src",
     "bin",
-    "server",
+    "server/**/*.go",
+    "server/ont-server",
     "scripts",
     "go.mod",
     "go.sum"
   ],
   "scripts": {
     "dev": "bun run bin/ont.ts",
-    "build": "bun run build:go && bun build ./src/index.ts --outdir ./dist --target node",
+    "build": "bun build ./src/index.ts --outdir ./dist --target node && bun run build:go",
     "build:go": "cd server && go build -o ont-server main.go",
     "build:cli": "bun build ./bin/ont.ts --outfile ./dist/bin/ont.js --target node --external @modelcontextprotocol/sdk --external zod && sed -i '' '1s/bun/node/' ./dist/bin/ont.js",
     "build:types": "tsc --declaration --emitDeclarationOnly",

@@ -140,6 +140,7 @@ export async function startOnt(options: StartOntOptions = {}): Promise<StartOntR
       consola.error("Failed to start Go server:", error.message);
       consola.info("Make sure to build the Go server first:");
       consola.info("  cd server && go build -o ont-server main.go");
+      throw new Error(`Failed to start Go backend: ${error.message}`);
     });
 
     goProcess.on("exit", (code) => {
@@ -182,8 +183,13 @@ export async function startOnt(options: StartOntOptions = {}): Promise<StartOntR
     consola.info("Shutting down...");
     if (result.api) {
       result.api.process.kill();
+      // Wait briefly for process to exit
+      setTimeout(() => {
+        process.exit(0);
+      }, 1000);
+    } else {
+      process.exit(0);
     }
-    process.exit(0);
   });
 
   return result;
