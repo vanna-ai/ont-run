@@ -144,6 +144,14 @@ function analyzeField(name: string, schema: z.ZodTypeAny, functions?: Record<str
 export async function startBrowserServer(options: BrowserServerOptions): Promise<BrowserServerResult> {
   const { config, diff = null, configDir, configPath, port: preferredPort, openBrowser = true, background = false } = options;
 
+  // Check if we're in a headless environment early
+  const browserEnv = process.env.BROWSER;
+  const isVsCodeBrowser = !!browserEnv && (browserEnv.includes("helpers/browser.sh") || browserEnv.includes("vscode"));
+  const isHeadless = process.platform === "linux" && !process.env.DISPLAY && (!browserEnv || isVsCodeBrowser);
+  console.log(
+    `Environment: platform=${process.platform} display=${process.env.DISPLAY ?? ""} browser=${browserEnv ?? ""} isVsCodeBrowser=${isVsCodeBrowser} isHeadless=${isHeadless}`
+  );
+
   // Transform config to graph data and enhance with diff info
   const baseGraphData = transformToGraphData(config);
   const graphData = enhanceWithDiff(baseGraphData, diff);
@@ -388,14 +396,17 @@ export async function startBrowserServer(options: BrowserServerOptions): Promise
     const hasChanges = diff?.hasChanges ?? false;
     console.log(`\nOntology ${hasChanges ? "Review" : "Browser"} available at: ${url}`);
 
-    if (openBrowser) {
+    if (openBrowser && !background && !isHeadless) {
       console.log("Opening in browser...\n");
       try {
         await open(url);
-      } catch {
+      } catch (error) {
+        // Silently handle browser open failures
         console.log("Could not open browser automatically.");
         console.log(`Please open ${url} manually.\n`);
       }
+    } else if (openBrowser && (background || isHeadless)) {
+      console.log(`Please open ${url} in your browser.\n`);
     }
 
     if (hasChanges) {

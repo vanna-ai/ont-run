@@ -2,7 +2,7 @@
 // Template Exports
 // ============================================================================
 
-export { configTemplate, buildTemplate, bunfigTemplate, tsconfigTemplate } from "./config.js";
+export { configTemplate, buildTemplate, tsconfigTemplate } from "./config.js";
 export { serverTemplate, htmlTemplate } from "./server.js";
 export { cssTemplate } from "./css.js";
 export { frontendTemplate, appTemplate } from "./app.js";

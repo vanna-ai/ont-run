@@ -3,8 +3,8 @@
 // ============================================================================
 
 export const serverTemplate = `import { createApiApp, createMcpApp, loadConfig } from "ont-run";
-// HTML import - Bun's bundler will transpile TSX/CSS automatically
-import index from "./index.html";
+import { Hono } from "hono";
+import { serve } from "@hono/node-server";
 
 const { config, configDir, configPath } = await loadConfig();
 const env = process.env.NODE_ENV === "production" ? "prod" : "dev";
@@ -12,26 +12,42 @@ const env = process.env.NODE_ENV === "production" ? "prod" : "dev";
 const api = createApiApp({ config, configDir, configPath, env });
 const mcp = await createMcpApp({ config, env });
 
-const server = Bun.serve({
-  port: Number(process.env.PORT) || 3000,
-  routes: {
-    // HTML route - Bun handles bundling and transpilation
-    "/": index,
-    // API routes (wildcard must come before SPA fallback)
-    "/api/*": (req: Request) => api.fetch(req),
-    // Health check
-    "/health": (req: Request) => api.fetch(req),
-    // MCP endpoint (POST for JSON-RPC, GET for SSE)
-    "/mcp": (req: Request) => mcp.fetch(req),
-    // SPA fallback - serve index.html for client-side routing
-    "/*": index,
-  },
-  development: process.env.NODE_ENV !== "production",
+// Create a combined app
+const app = new Hono();
+
+// Mount API and health routes (api includes /health and /api/*)
+// IMPORTANT: DO NOT ADD ROUTES HERE. YOU MUST EDIT ontology.config.ts
+app.route("/", api);
+
+// Mount MCP endpoint
+app.all("/mcp", (c) => mcp.fetch(c.req.raw));
+
+// In production, serve static files from dist/client
+if (env === "prod") {
+  const { serveStatic } = await import("@hono/node-server/serve-static");
+  
+  // Serve static files
+  app.use("/*", serveStatic({ root: "./dist/client" }));
+  
+  // Fallback to index.html for client-side routing (SPA)
+  app.get("*", serveStatic({ path: "./dist/client/index.html" }));
+}
+
+// Start server (both dev and prod)
+const port = Number(process.env.PORT) || 3000;
+console.log(\`Starting \${env} server on port \${port}...\`);
+
+serve({
+  fetch: app.fetch,
+  port,
 });
 
-console.log(\`Server: http://localhost:\${server.port}\`);
-console.log(\`API: http://localhost:\${server.port}/api\`);
-console.log(\`MCP: http://localhost:\${server.port}/mcp\`);
+console.log(\`✓ Server running at http://localhost:\${port}\`);
+console.log(\`✓ API: http://localhost:\${port}/api\`);
+console.log(\`✓ MCP: http://localhost:\${port}/mcp\`);
+if (env === "dev") {
+  console.log(\`✓ Frontend: Run 'npm run dev:vite' in another terminal\`);
+}
 `;
 
 export const htmlTemplate = `<!DOCTYPE html>

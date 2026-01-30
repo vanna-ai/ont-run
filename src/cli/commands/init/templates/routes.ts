@@ -3,7 +3,7 @@
 // ============================================================================
 
 export const homeRouteTemplate = `import { useState, useEffect } from "react";
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
 import { Zap, Shield, Code, ArrowRight, Activity, Bot, Key } from "lucide-react";
 import { VannaButton } from "../components/VannaButton";
 import { VannaCard } from "../components/VannaCard";

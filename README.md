@@ -70,7 +70,7 @@ WARN  Ontology has changed:
       ~ assignTicket
         Access: [admin] -> [admin, public]
 
-WARN  Run `bunx ont-run review` to approve these changes.
+WARN  Run `npx ont-run review` to approve these changes.
 ```
 
 **Why not just prompts?** The ontology is the source of truth. The framework won't run if it changes without human review.
@@ -78,10 +78,6 @@ WARN  Run `bunx ont-run review` to approve these changes.
 ## Installation
 
 ```bash
-# Using bun (recommended)
-bunx ont-run init my-api
-
-# Using npm
 npx ont-run init my-api
 ```
 
@@ -92,32 +88,24 @@ This creates a new project with the ont-run framework configured.
 ### 1. Initialize
 
 ```bash
-bunx ont-run init my-api
-# or: npx ont-run init my-api
-
+npx ont-run init my-api
 cd my-api
 ```
 
 ### 2. Review the initial ontology
 
 ```bash
-bunx ont-run review
-# or: npx ont-run review
+npm run review
 ```
 
 Opens a browser showing all functions and access groups. Click **Approve** to generate `ont.lock`.
 
 ### 3. Start the server
 
-```typescript
-// index.ts
-import { startOnt } from 'ont-run';
-
-await startOnt({ port: 3000 });
-```
+The generated project includes a full-stack setup with Vite + React Router for the frontend and Hono for the backend.
 
 ```bash
-bun index.ts
+npm run dev
 ```
 
 Your API is running at `http://localhost:3000`.
@@ -279,8 +267,8 @@ export default async function editPost(
 ## CLI Commands
 
 ```bash
-bunx ont-run init [dir]    # Initialize a new project (or: npx ont-run init [dir])
-bunx ont-run review        # Review and approve ontology changes (or: npx ont-run review)
+npx ont-run init [dir]    # Initialize a new project
+npx ont-run review        # Review and approve ontology changes
 ```
 
 ## API Endpoints

@@ -138,42 +138,42 @@ export default defineOntology({
 });
 `;
 
-export const buildTemplate = `import { $ } from "bun";
+export const buildTemplate = `import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+import { resolve } from 'path';
 
-console.log("Building for production...");
-
-// Build frontend assets
-const result = await Bun.build({
-  entrypoints: ["./src/frontend.tsx"],
-  outdir: "./dist",
-  minify: true,
-  sourcemap: "external",
-  plugins: [
-    // @ts-ignore - bun-plugin-tailwind types
-    (await import("bun-plugin-tailwind")).default,
-  ],
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+  root: 'src',
+  server: {
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+      '/health': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+      '/mcp': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+    },
+  },
+  build: {
+    outDir: '../dist/client',
+    emptyOutDir: true,
+    rollupOptions: {
+      input: resolve(__dirname, 'src/index.html'),
+    },
+  },
 });
-
-if (!result.success) {
-  console.error("Build failed:");
-  for (const log of result.logs) {
-    console.error(log);
-  }
-  process.exit(1);
-}
-
-// Copy HTML and update paths for production
-const html = await Bun.file("./src/index.html").text();
-const prodHtml = html
-  .replace('./index.css', '/index.css')
-  .replace('./frontend.tsx', '/frontend.js');
-await Bun.write("./dist/index.html", prodHtml);
-
-console.log("Build complete! Output in ./dist");
 `;
 
-export const bunfigTemplate = `[serve.static]
-plugins = ["bun-plugin-tailwind"]
+export const bunfigTemplate = `# No longer needed - using Vite instead
 `;
 
 export const tsconfigTemplate = `{
@@ -194,7 +194,7 @@ export const tsconfigTemplate = `{
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false,
-    "types": ["bun"]
+    "types": ["node"]
   }
 }
 `;

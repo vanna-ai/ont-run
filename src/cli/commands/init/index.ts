@@ -1,14 +1,12 @@
 import { defineCommand } from "citty";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "fs";
-import { execSync, spawn } from "child_process";
-import { join } from "path";
+import { spawn } from "child_process";
+import { join, isAbsolute } from "path";
 import consola from "consola";
 
-// Import all templates
 import {
   configTemplate,
   buildTemplate,
-  bunfigTemplate,
   tsconfigTemplate,
   serverTemplate,
   htmlTemplate,
@@ -40,25 +38,6 @@ function isDirectoryEmpty(dir: string): boolean {
 }
 
 /**
- * Get the path to bun binary, checking PATH first then default install location
- */
-function getBunPath(): string | null {
-  // Check if bun is in PATH
-  try {
-    execSync("bun --version", { stdio: "ignore" });
-    return "bun";
-  } catch {
-    // Check default installation location
-    const homedir = process.env.HOME || process.env.USERPROFILE || "";
-    const defaultBunPath = join(homedir, ".bun", "bin", "bun");
-    if (existsSync(defaultBunPath)) {
-      return defaultBunPath;
-    }
-    return null;
-  }
-}
-
-/**
  * Run a command with inherited stdio, returns promise of exit code
  */
 function runCommand(command: string, args: string[], cwd?: string): Promise<boolean> {
@@ -75,7 +54,7 @@ function runCommand(command: string, args: string[], cwd?: string): Promise<bool
 export const initCommand = defineCommand({
   meta: {
     name: "init",
-    description: "Initialize a new full-stack Ontology project with Bun + React",
+    description: "Initialize a new full-stack Ontology project with React + Vite + Hono",
   },
   args: {
     dir: {
@@ -85,7 +64,11 @@ export const initCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const targetDir = args.dir === "." ? process.cwd() : join(process.cwd(), args.dir);
+    const targetDir = args.dir === "." 
+      ? process.cwd() 
+      : isAbsolute(args.dir) 
+        ? args.dir 
+        : join(process.cwd(), args.dir);
 
     consola.info(`Initializing full-stack Ontology project in ${targetDir}`);
 
@@ -124,8 +107,7 @@ export const initCommand = defineCommand({
       // Root files
       [".gitignore", gitignoreTemplate],
       ["ontology.config.ts", configTemplate],
-      ["build.ts", buildTemplate],
-      ["bunfig.toml", bunfigTemplate],
+      ["vite.config.ts", buildTemplate],
       ["tsconfig.json", tsconfigTemplate],
 
       // src/ files
@@ -178,101 +160,66 @@ export const initCommand = defineCommand({
     packageJson.type = "module";
     packageJson.scripts = {
       ...(packageJson.scripts as Record<string, string> || {}),
-      dev: "bun run typecheck && bun --hot src/index.ts",
-      build: "bun run build.ts",
-      start: "NODE_ENV=production bun src/index.ts",
-      review: "bunx ont-run review",
+      dev: "concurrently \"npm run dev:server\" \"npm run dev:vite\"",
+      "dev:server": "tsx watch src/index.ts",
+      "dev:vite": "vite",
+      build: "vite build",
+      start: "NODE_ENV=production tsx src/index.ts",
+      preview: "vite preview",
+      review: "npx ont-run review",
       typecheck: "tsc --noEmit",
     };
     packageJson.dependencies = {
       ...(packageJson.dependencies as Record<string, string> || {}),
+      "@hono/node-server": "^1.19.8",
+      hono: "^4.6.0",
       "ont-run": "latest",
       react: "^19.0.0",
       "react-dom": "^19.0.0",
-      "react-router": "^7.0.0",
+      "react-router-dom": "^7.0.0",
       zod: "^4.0.0",
       "lucide-react": "^0.511.0",
       recharts: "^2.15.3",
     };
     packageJson.devDependencies = {
       ...(packageJson.devDependencies as Record<string, string> || {}),
-      "@types/bun": "latest",
+      "@types/node": "^20.0.0",
       "@types/react": "^19",
       "@types/react-dom": "^19",
-      "bun-plugin-tailwind": "^0.1.2",
+      "@vitejs/plugin-react": "^5.1.0",
+      "@tailwindcss/vite": "^4.1.11",
+      concurrently: "^9.0.0",
       tailwindcss: "^4.1.11",
+      tsx: "^4.0.0",
       typescript: "^5.5.0",
+      vite: "^7.3.0",
     };
 
     writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     consola.success("Updated package.json");
 
-    // Check for bun installation
-    let bunPath = getBunPath();
+    // Run npm install
+    console.log("\n");
+    consola.info("Installing dependencies with npm...");
+    const installSuccess = await runCommand("npm", ["install"], targetDir);
 
-    if (!bunPath) {
-      console.log("\n");
-      consola.warn("Bun is not installed.");
-
-      const shouldInstall = await consola.prompt(
-        "Would you like to install bun now?",
-        { type: "confirm", initial: true }
-      );
-
-      if (shouldInstall) {
-        consola.info("Installing bun...");
-        const installed = await runCommand("bash", ["-c", "curl -fsSL https://bun.sh/install | bash"]);
-
-        if (installed) {
-          consola.success("Bun installed successfully!");
-          // Check again after install (will find it at ~/.bun/bin/bun)
-          bunPath = getBunPath();
-        } else {
-          consola.error("Failed to install bun.");
-          consola.info("Install manually: curl -fsSL https://bun.sh/install | bash");
-        }
-      } else {
-        consola.info("Install bun manually: curl -fsSL https://bun.sh/install | bash");
-        consola.info("Then run: bun install");
-      }
-    }
-
-    // Run bun install if bun is available
-    if (bunPath) {
-      console.log("\n");
-      consola.info("Installing dependencies...");
-      const installSuccess = await runCommand(bunPath, ["install"], targetDir);
-
-      if (installSuccess) {
-        consola.success("Dependencies installed!");
-      } else {
-        consola.warn("Failed to install dependencies. Please run 'bun install' manually.");
-      }
+    if (installSuccess) {
+      consola.success("Dependencies installed!");
+    } else {
+      consola.warn("Failed to install dependencies. Please run 'npm install' manually.");
     }
 
     // Instructions
     console.log("\n");
-    if (bunPath) {
-      consola.box(
-        "Full-stack Ontology project initialized!\n\n" +
-          "Next steps:\n" +
-          "  1. Run `bun run review` to approve the initial ontology\n" +
-          "  2. Run `bun run dev` to start the dev server\n\n" +
-          "Your app will be available at http://localhost:3000\n" +
-          "API endpoints at http://localhost:3000/api"
-      );
-    } else {
-      consola.box(
-        "Full-stack Ontology project initialized!\n\n" +
-          "Next steps:\n" +
-          "  1. Install bun: curl -fsSL https://bun.sh/install | bash\n" +
-          "  2. Restart your terminal\n" +
-          "  3. Run `bun install` to install dependencies\n" +
-          "  4. Run `bun run review` to approve the initial ontology\n" +
-          "  5. Run `bun run dev` to start the dev server\n\n" +
-          "Your app will be available at http://localhost:3000\n" +
-          "API endpoints at http://localhost:3000/api"
-      );
-    }
+    consola.box(
+      "Full-stack Ontology project initialized!\n\n" +
+        "Next steps:\n" +
+        "  1. cd " + (args.dir === "." ? "." : args.dir) + "\n" +
+        "  2. Run `npm run review` to approve the initial ontology\n" +
+        "  3. Run `npm run dev` to start the dev server\n\n" +
+        "Your app will be available at http://localhost:5173\n" +
+        "API endpoints at http://localhost:5173/api\n" +
+        "MCP server at http://localhost:5173/mcp"
+    );
   },
 });
