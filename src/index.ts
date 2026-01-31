@@ -33,7 +33,7 @@
 
 // Main API
 export { defineOntology, defineFunction } from "./config/define.js";
-export { fieldFrom, userContext } from "./config/categorical.js";
+export { fieldFrom, userContext, organizationContext } from "./config/categorical.js";
 export { startOnt } from "./server/start.js";
 export type { StartOntOptions, StartOntResult } from "./server/start.js";
 
