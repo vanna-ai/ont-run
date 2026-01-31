@@ -14,13 +14,14 @@ description: Reference for ont-run API configuration and patterns. Use when modi
 This example demonstrates ALL configuration features:
 
 \`\`\`typescript
-import { defineOntology, userContext, fieldFrom } from 'ont-run';
+import { defineOntology, userContext, organizationContext, fieldFrom } from 'ont-run';
 import { z } from 'zod';
 
 // Import resolver functions
 import healthCheck from './resolvers/healthCheck.js';
 import getUser from './resolvers/getUser.js';
 import editPost from './resolvers/editPost.js';
+import createProject from './resolvers/createProject.js';
 import getUserStatuses from './resolvers/options/userStatuses.js';
 import searchTeams from './resolvers/options/searchTeams.js';
 import createUser from './resolvers/createUser.js';
@@ -34,7 +35,7 @@ export default defineOntology({
     prod: { debug: false, apiUrl: 'https://api.example.com' },
   },
 
-  // Pluggable auth - returns AuthResult with groups + optional user
+  // Pluggable auth - returns AuthResult with groups + optional user/organization
   auth: async (req) => {
     const token = req.headers.get('Authorization');
 
@@ -44,6 +45,22 @@ export default defineOntology({
 
     // Verify token and get user (your auth logic here)
     const user = await verifyToken(token);
+
+    // For multi-tenant apps, extract organization context
+    const orgId = new URL(req.url).searchParams.get('org_id');
+    if (orgId) {
+      // Verify user's membership in the organization
+      const org = await db.organizations.findById(orgId);
+      const isMember = await db.organizationMembers.exists({ userId: user.id, orgId });
+      
+      if (isMember) {
+        return {
+          groups: user.isAdmin ? ['admin', 'member'] : ['member'],
+          user: { id: user.id, email: user.email }, // For userContext()
+          organization: { id: org.id, name: org.name }, // For organizationContext()
+        };
+      }
+    }
 
     return {
       groups: user.isAdmin ? ['admin', 'user', 'public'] : ['user', 'public'],
@@ -55,6 +72,7 @@ export default defineOntology({
   accessGroups: {
     public: { description: 'Unauthenticated users' },
     user: { description: 'Authenticated users' },
+    member: { description: 'Organization members' },
     admin: { description: 'Administrators' },
   },
 
@@ -118,6 +136,29 @@ export default defineOntology({
         })),
       }),
       resolver: editPost,
+    },
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Function with organizationContext() for multi-tenant access control
+    // The currentOrg field is injected from auth() and hidden from API
+    // ═══════════════════════════════════════════════════════════════════════
+    createProject: {
+      description: 'Create a project in the organization',
+      access: ['member'],
+      entities: ['Project'],
+      inputs: z.object({
+        name: z.string(),
+        description: z.string().optional(),
+        // organizationContext() marks this field as:
+        // - Injected from auth() result's organization field
+        // - Hidden from public API/MCP schemas
+        // - Type-safe in resolver
+        currentOrg: organizationContext(z.object({
+          id: z.string(),
+          name: z.string(),
+        })),
+      }),
+      resolver: createProject,
     },
 
     // ═══════════════════════════════════════════════════════════════════════
