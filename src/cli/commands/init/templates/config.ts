@@ -14,6 +14,13 @@ import getSalesData from './resolvers/getSalesData.js';
 export default defineOntology({
   name: 'my-api',
 
+  // Auto-generated UUID for cloud service identification
+  uuid: '{{UUID}}',
+
+  // Connect to ont-run.com for AI agent access
+  // Set ONT_API_KEY in .env to enable verified mode
+  cloud: true,
+
   environments: {
     dev: { debug: true },
     prod: { debug: false },

@@ -46,6 +46,17 @@ export { loadConfig, findConfigFile } from "./cli/utils/config-loader.js";
 export { launchReviewInBackground } from "./browser/launch.js";
 export type { LaunchReviewOptions } from "./browser/launch.js";
 
+// Cloud integration
+export { CloudClient, registerWithCloud, tryRegisterWithCloud } from "./cloud/index.js";
+export type {
+  CloudClientOptions,
+  RegisterResponse,
+  ChatParams,
+  ChatMessage,
+  ChatResponse,
+  RegistrationResult,
+} from "./cloud/index.js";
+
 // Types
 export type {
   OntologyConfig,
@@ -59,6 +70,7 @@ export type {
   ResolverFunction,
   FieldOption,
   UiConfig,
+  CloudConfig,
 } from "./config/types.js";
 
 // Re-export Zod for convenience

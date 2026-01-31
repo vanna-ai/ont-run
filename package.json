@@ -16,6 +16,9 @@
     },
     "./config": {
       "default": "./dist/cli/utils/config-loader.js"
+    },
+    "./cloud": {
+      "default": "./dist/cloud/index.js"
     }
   },
   "files": [

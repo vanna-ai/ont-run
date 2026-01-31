@@ -2,6 +2,7 @@ import { defineCommand } from "citty";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "fs";
 import { spawn } from "child_process";
 import { join, isAbsolute } from "path";
+import { randomUUID } from "crypto";
 import consola from "consola";
 
 import {
@@ -138,8 +139,15 @@ export const initCommand = defineCommand({
       [".claude/skills/ont-run/SKILL.md", skillTemplate],
     ];
 
+    // Generate a UUID for this project
+    const projectUuid = randomUUID();
+
     for (const [filePath, content] of files) {
-      writeFileSync(join(targetDir, filePath), content);
+      // Replace UUID placeholder in config template
+      const finalContent = filePath === "ontology.config.ts"
+        ? content.replace("{{UUID}}", projectUuid)
+        : content;
+      writeFileSync(join(targetDir, filePath), finalContent);
     }
 
     consola.success("Created project files");

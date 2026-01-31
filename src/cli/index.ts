@@ -1,6 +1,7 @@
 import { defineCommand, runMain } from "citty";
 import { initCommand } from "./commands/init/index.js";
 import { reviewCommand } from "./commands/review.js";
+import { loginCommand } from "./commands/login.js";
 import pkg from "../../package.json";
 
 const main = defineCommand({
@@ -12,6 +13,7 @@ const main = defineCommand({
   subCommands: {
     init: initCommand,
     review: reviewCommand,
+    login: loginCommand,
   },
 });
 

@@ -17,6 +17,7 @@ import {
   lockfileExists,
 } from "../../lockfile/index.js";
 import { launchReviewInBackground } from "../../browser/launch.js";
+import { tryRegisterWithCloud } from "../../cloud/registration.js";
 
 export interface ApiServerOptions {
   /** The ontology configuration */
@@ -95,6 +96,12 @@ export function createApiApp(options: ApiServerOptions): Hono<{ Variables: Ontol
         consola.error("Ontology Lockfile validation error:", error instanceof Error ? error.message : error);
       });
     }
+  }
+
+  // Cloud registration (if enabled)
+  // Run in background - don't block server start
+  if (config.cloud && config.uuid) {
+    tryRegisterWithCloud(config);
   }
 
   const app = new Hono<{ Variables: OntologyVariables }>();
