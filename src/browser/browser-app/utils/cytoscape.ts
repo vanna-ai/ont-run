@@ -1,6 +1,5 @@
+import cytoscape from 'cytoscape';
 import type { GraphData, LayoutType } from '../types';
-
-declare const cytoscape: any;
 
 export function initializeCytoscape(
   container: HTMLElement,

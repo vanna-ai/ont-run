@@ -54,10 +54,12 @@
   "devDependencies": {
     "@hono/vite-dev-server": "^0.24.1",
     "@modelcontextprotocol/ext-apps": "^1.0.0",
+    "@types/cytoscape": "^3.21.9",
     "@types/node": "^20.0.0",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "@vitejs/plugin-react": "^5.1.0",
+    "cytoscape": "^3.33.1",
     "lucide-react": "^0.563.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
