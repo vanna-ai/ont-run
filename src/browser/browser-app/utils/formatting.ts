@@ -118,6 +118,15 @@ export function highlightTypeScript(code: string): string {
   return code;
 }
 
+/**
+ * Generate a default value for a property type.
+ * Used for test data generation and form initialization.
+ * 
+ * @param type - The JSON schema type (string, number, integer, boolean)
+ * @param format - Optional format hint (e.g., 'email' for strings)
+ * @param propertyName - Optional property name to generate context-aware defaults (e.g., 'userId' -> 'test-userId')
+ * @returns A default value appropriate for the type
+ */
 function getDefaultForPropertyType(type: string, format?: string, propertyName?: string): any {
   if (type === 'string') {
     if (format === 'email') return 'test@example.com';

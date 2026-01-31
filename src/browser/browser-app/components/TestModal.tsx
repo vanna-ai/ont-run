@@ -584,7 +584,8 @@ const UserContextSection: React.FC<{
                 {Object.entries(field.innerSchema.properties).map(([key, prop]: [string, any]) => {
                   const subInputId = `${field.name}-${key}`;
                   const subDisplayName = formatFieldName(key);
-                  const currentValue = formData[field.name]?.[key] || getDefaultValueForType(prop);
+                  // Use existing value or compute default only if needed (short-circuits if value exists)
+                  const currentValue = formData[field.name]?.[key] ?? getDefaultValueForType(prop, key);
 
                   const updateSubField = (value: any) => {
                     setFormData((prev: any) => ({
