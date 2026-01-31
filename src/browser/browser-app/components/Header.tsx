@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { GraphMeta, FilterType, ViewType, LayoutType, SearchResult } from '../types';
 
+const SEARCH_DEBOUNCE_MS = 150;
+const SEARCH_BLUR_DELAY_MS = 200; // Delay to allow click events on results to fire before blur
+
 interface HeaderProps {
   meta: GraphMeta;
   activeFilter: FilterType;
@@ -49,7 +52,7 @@ export const Header: React.FC<HeaderProps> = ({
         setSearchResults([]);
         setShowResults(false);
       }
-    }, 150);
+    }, SEARCH_DEBOUNCE_MS);
 
     return () => {
       if (searchTimeoutRef.current) {
@@ -66,7 +69,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const handleSearchBlur = () => {
-    setTimeout(() => setShowResults(false), 200);
+    setTimeout(() => setShowResults(false), SEARCH_BLUR_DELAY_MS);
   };
 
   return (

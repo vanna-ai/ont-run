@@ -118,17 +118,22 @@ export function highlightTypeScript(code: string): string {
   return code;
 }
 
-export function getDefaultValueForType(prop: any): any {
-  if (prop.type === 'string') {
-    return prop.format === 'email' ? 'test@example.com' : 'test-value';
+function getDefaultForPropertyType(type: string, format?: string, propertyName?: string): any {
+  if (type === 'string') {
+    if (format === 'email') return 'test@example.com';
+    return propertyName ? `test-${propertyName}` : 'test-value';
   }
-  if (prop.type === 'number' || prop.type === 'integer') {
+  if (type === 'number' || type === 'integer') {
     return 1;
   }
-  if (prop.type === 'boolean') {
+  if (type === 'boolean') {
     return false;
   }
   return '';
+}
+
+export function getDefaultValueForType(prop: any, propertyName?: string): any {
+  return getDefaultForPropertyType(prop.type, prop.format, propertyName);
 }
 
 export function generateDefaultFromSchema(schema: any): any {
@@ -138,13 +143,7 @@ export function generateDefaultFromSchema(schema: any): any {
   const result: any = {};
   for (const [key, prop] of Object.entries(schema.properties)) {
     const propSchema = prop as any;
-    if (propSchema.type === 'string') {
-      result[key] = propSchema.format === 'email' ? 'test@example.com' : 'test-' + key;
-    } else if (propSchema.type === 'number' || propSchema.type === 'integer') {
-      result[key] = 1;
-    } else if (propSchema.type === 'boolean') {
-      result[key] = false;
-    }
+    result[key] = getDefaultForPropertyType(propSchema.type, propSchema.format, key);
   }
   return result;
 }
