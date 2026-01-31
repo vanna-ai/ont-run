@@ -16,5 +16,5 @@
     "types": ["node"]
   },
   "include": ["src/**/*", "bin/**/*"],
-  "exclude": ["node_modules", "dist", "src/server/mcp/apps/visualizer"]
+  "exclude": ["node_modules", "dist", "src/server/mcp/apps/visualizer", "src/browser/browser-app"]
 }
