@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
 import { z } from "zod";
 import type { OntologyConfig } from "../config/types.js";
-import { getFieldFromMetadata, getUserContextFields } from "../config/categorical.js";
+import { getFieldFromMetadata, getUserContextFields, getOrganizationContextFields } from "../config/categorical.js";
 import {
   isZodObject,
   isZodOptional,
@@ -138,6 +138,10 @@ export function extractOntology(config: OntologyConfig): OntologySnapshot {
     const userContextFields = getUserContextFields(fn.inputs);
     const usesUserContext = userContextFields.length > 0;
 
+    // Check if function uses organizationContext
+    const orgContextFields = getOrganizationContextFields(fn.inputs);
+    const usesOrganizationContext = orgContextFields.length > 0;
+
     functions[name] = {
       description: fn.description,
       // Sort access groups for consistent hashing
@@ -149,6 +153,7 @@ export function extractOntology(config: OntologyConfig): OntologySnapshot {
       fieldReferences:
         fieldReferences.length > 0 ? fieldReferences : undefined,
       usesUserContext: usesUserContext || undefined,
+      usesOrganizationContext: usesOrganizationContext || undefined,
     };
   }
 

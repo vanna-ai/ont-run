@@ -12,6 +12,11 @@ export const FIELD_FROM_METADATA = Symbol.for("ont:fieldFrom");
 export const USER_CONTEXT_METADATA = Symbol.for("ont:userContext");
 
 /**
+ * Symbol for storing organizationContext metadata on Zod schemas
+ */
+export const ORGANIZATION_CONTEXT_METADATA = Symbol.for("ont:organizationContext");
+
+/**
  * Metadata stored on fieldFrom Zod schemas
  */
 export interface FieldFromMetadata {
@@ -186,6 +191,104 @@ export function getUserContextFields(schema: z.ZodType): string[] {
     if (shape) {
       for (const [key, value] of Object.entries(shape)) {
         if (hasUserContextMetadata(value)) {
+          fields.push(key);
+        }
+      }
+    }
+  }
+
+  return fields;
+}
+
+/**
+ * Type for a Zod schema with organizationContext metadata
+ */
+export type OrganizationContextSchema<T extends z.ZodType> = T & {
+  [ORGANIZATION_CONTEXT_METADATA]: true;
+};
+
+/**
+ * Mark a schema as organization context that will be injected at runtime.
+ *
+ * Fields marked with `organizationContext()` are:
+ * - **Injected**: Populated from `auth()` result's `organization` field
+ * - **Hidden**: Not exposed in public API/MCP schemas
+ * - **Type-safe**: Resolver receives typed organization object
+ *
+ * @param schema - Zod schema for the organization context shape
+ *
+ * @example
+ * ```ts
+ * defineOntology({
+ *   auth: async (req) => {
+ *     const orgId = new URL(req.url).searchParams.get('org_id');
+ *     if (!orgId) return { groups: ['public'] };
+ *     
+ *     const user = await verifyToken(req);
+ *     const org = await db.organizations.findById(orgId);
+ *     
+ *     // Verify user membership in organization
+ *     const isMember = await db.organizationMembers.exists({ userId: user.id, orgId });
+ *     if (!isMember) throw new Error('Not a member of this organization');
+ *     
+ *     return {
+ *       groups: ['member'],
+ *       organization: { id: org.id, name: org.name }
+ *     };
+ *   },
+ *
+ *   functions: {
+ *     createProject: {
+ *       description: 'Create a project in the organization',
+ *       access: ['member'],
+ *       entities: ['Project'],
+ *       inputs: z.object({
+ *         name: z.string(),
+ *         description: z.string(),
+ *         currentOrg: organizationContext(z.object({
+ *           id: z.string(),
+ *           name: z.string(),
+ *         })),
+ *       }),
+ *       resolver: './resolvers/createProject.ts',
+ *     },
+ *   },
+ * })
+ * ```
+ */
+export function organizationContext<T extends z.ZodType>(schema: T): OrganizationContextSchema<T> {
+  const marked = schema as OrganizationContextSchema<T>;
+  marked[ORGANIZATION_CONTEXT_METADATA] = true;
+  return marked;
+}
+
+/**
+ * Check if a Zod schema has organizationContext metadata
+ */
+export function hasOrganizationContextMetadata(
+  schema: unknown
+): schema is OrganizationContextSchema<z.ZodType> {
+  return (
+    schema !== null &&
+    typeof schema === "object" &&
+    ORGANIZATION_CONTEXT_METADATA in schema &&
+    (schema as Record<symbol, unknown>)[ORGANIZATION_CONTEXT_METADATA] === true
+  );
+}
+
+/**
+ * Get all organizationContext field names from a Zod object schema
+ *
+ * Note: Uses zod-utils for bundler compatibility (instanceof fails across module boundaries)
+ */
+export function getOrganizationContextFields(schema: z.ZodType): string[] {
+  const fields: string[] = [];
+
+  if (isZodObject(schema)) {
+    const shape = getObjectShape(schema);
+    if (shape) {
+      for (const [key, value] of Object.entries(shape)) {
+        if (hasOrganizationContextMetadata(value)) {
           fields.push(key);
         }
       }
