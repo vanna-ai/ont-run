@@ -10,6 +10,7 @@ import { serve, findAvailablePort } from "../runtime/index.js";
 import { transformToGraphData, enhanceWithDiff, searchNodes, getNodeDetails, type EnhancedGraphData } from "./transform.js";
 import { getFieldFromMetadata, hasUserContextMetadata, hasOrganizationContextMetadata } from "../config/categorical.js";
 import { isZodObject, isZodOptional, isZodNullable, isZodDefault, isZodArray, getObjectShape, getInnerSchema, getArrayElement } from "../config/zod-utils.js";
+import { browserAppHtml } from "./browser-app.js";
 
 export interface BrowserServerOptions {
   config: OntologyConfig;
@@ -396,8 +397,8 @@ export async function startBrowserServer(options: BrowserServerOptions): Promise
       }
     });
 
-    // Serve UI
-    app.get("/", (c) => c.html(generateBrowserUI(graphData)));
+    // Serve UI (use bundled browser-app HTML instead of generateBrowserUI)
+    app.get("/", (c) => c.html(browserAppHtml));
 
     // Start server
     const port = preferredPort || (await findAvailablePort(3457));
@@ -438,6 +439,10 @@ export async function startBrowserServer(options: BrowserServerOptions): Promise
 }
 
 function generateBrowserUI(graphData: EnhancedGraphData): string {
+  // For now, return the embedded HTML with inline data
+  // In the future, this could be updated to use the React app
+  // by serving static files and fetching data via /api/graph
+  
   const userContextFilterBtn = graphData.meta.totalUserContextFunctions > 0
     ? `<button class="filter-btn" data-filter="userContext" title="Functions using userContext()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>User Context (${graphData.meta.totalUserContextFunctions})

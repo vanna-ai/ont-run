@@ -4,26 +4,41 @@ import { viteSingleFile } from "vite-plugin-singlefile";
 import { resolve } from "path";
 
 /**
- * Vite configuration for building MCP Apps as single-file HTML bundles.
+ * Vite configuration for building apps as single-file HTML bundles.
  *
  * This config:
- * 1. Bundles React + Recharts + app code into a single HTML file
+ * 1. Bundles React + dependencies + app code into a single HTML file
  * 2. Inlines all CSS and JS
  * 3. Outputs to dist/apps/ directory
  *
- * Build with: bun run build:apps
+ * Build with: npm run build:apps
  */
+
+// Get the app name from the APP environment variable
+const appName = process.env.APP || "visualizer";
+
+// Map app names to their directories
+const appPaths: Record<string, string> = {
+  visualizer: "src/server/mcp/apps/visualizer",
+  "browser-app": "src/browser/browser-app",
+};
+
+const appPath = appPaths[appName];
+if (!appPath) {
+  throw new Error(`Unknown app: ${appName}. Available apps: ${Object.keys(appPaths).join(", ")}`);
+}
+
 export default defineConfig({
   plugins: [react(), viteSingleFile()],
-  root: "src/server/mcp/apps/visualizer",
+  root: appPath,
   build: {
     outDir: resolve(__dirname, "dist/apps"),
-    emptyOutDir: true,
+    emptyOutDir: false, // Don't empty - bundle-apps.ts handles cleanup
     rollupOptions: {
-      input: resolve(__dirname, "src/server/mcp/apps/visualizer/index.html"),
+      input: resolve(__dirname, appPath, "index.html"),
       output: {
         // Ensure consistent naming
-        entryFileNames: "visualizer.js",
+        entryFileNames: `${appName}.js`,
         chunkFileNames: "[name].js",
         assetFileNames: "[name][extname]",
       },
@@ -42,7 +57,7 @@ export default defineConfig({
   // Resolve paths for imports
   resolve: {
     alias: {
-      "@": resolve(__dirname, "src/server/mcp/apps/visualizer"),
+      "@": resolve(__dirname, appPath),
     },
   },
 });
