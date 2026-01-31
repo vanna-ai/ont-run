@@ -8,17 +8,8 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/src/index.d.ts",
+      "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    },
-    "./server": {
-      "default": "./dist/server/api/index.js"
-    },
-    "./config": {
-      "default": "./dist/cli/utils/config-loader.js"
-    },
-    "./cloud": {
-      "default": "./dist/cloud/index.js"
     }
   },
   "files": [
