@@ -33,7 +33,7 @@ export default defineConfig({
   root: appPath,
   build: {
     outDir: resolve(__dirname, "dist/apps"),
-    emptyOutDir: false, // Don't empty when building multiple apps
+    emptyOutDir: false, // Don't empty - bundle-apps.ts handles cleanup
     rollupOptions: {
       input: resolve(__dirname, appPath, "index.html"),
       output: {

@@ -43,9 +43,16 @@ const apps: AppConfig[] = [
 async function bundleApps() {
   console.log("Building apps with Vite...\n");
 
-  // Ensure dist/apps directory exists
+  // Ensure dist/apps directory exists and is clean
   const distAppsDir = resolve(rootDir, "dist/apps");
-  if (!existsSync(distAppsDir)) {
+  if (existsSync(distAppsDir)) {
+    // Clean the directory to prevent stale files
+    const fs = await import("fs");
+    const files = fs.readdirSync(distAppsDir);
+    for (const file of files) {
+      fs.rmSync(resolve(distAppsDir, file), { recursive: true, force: true });
+    }
+  } else {
     mkdirSync(distAppsDir, { recursive: true });
   }
 
@@ -53,8 +60,8 @@ async function bundleApps() {
     console.log(`Building ${app.name}...`);
     
     try {
-      // Run Vite build for this app
-      execSync(`APP=${app.name} npx vite build --config vite.config.apps.ts`, {
+      // Run Vite build for this app (cross-platform compatible)
+      execSync(`npx vite build --config vite.config.apps.ts`, {
         cwd: rootDir,
         stdio: "inherit",
         env: { ...process.env, APP: app.name },

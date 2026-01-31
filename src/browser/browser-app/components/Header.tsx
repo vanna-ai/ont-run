@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { GraphMeta, FilterType, ViewType, LayoutType, SearchResult } from '../types';
 
-const SEARCH_DEBOUNCE_MS = 150;
-// Allow click events on search results to fire before blur closes the dropdown
-const SEARCH_BLUR_DELAY_MS = 200;
+// Search configuration constants
+const SEARCH_DEBOUNCE_MS = 150; // Delay before triggering search API call
+const SEARCH_BLUR_DELAY_MS = 200; // Delay before hiding search results (must be > SEARCH_DEBOUNCE_MS)
+const MIN_SEARCH_QUERY_LENGTH = 1; // Minimum characters to trigger search
 
 interface HeaderProps {
   meta: GraphMeta;

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import type { TestConfig, TestFieldSchema, TestFunctionSchema } from '../types';
 import { formatFieldName, getTypeHint, getDefaultValueForType, generateDefaultFromSchema } from '../utils/formatting';
 
-const MIN_SEARCH_QUERY_LENGTH = 2;
+// Minimum query length to trigger search dropdown options
+const MIN_SEARCH_QUERY_LENGTH_FOR_DROPDOWN = 2;
 
 interface TestModalProps {
   isOpen: boolean;
@@ -126,7 +127,7 @@ export const TestModal: React.FC<TestModalProps> = ({ isOpen, functionName, test
   };
 
   const searchFieldOptions = async (fieldName: string, sourceFunctionName: string, query: string) => {
-    if (query.length < MIN_SEARCH_QUERY_LENGTH) {
+    if (query.length < MIN_SEARCH_QUERY_LENGTH_FOR_DROPDOWN) {
       setFieldOptions(prev => ({ ...prev, [fieldName]: [] }));
       return;
     }
