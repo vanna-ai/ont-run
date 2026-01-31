@@ -26,6 +26,8 @@ export interface FunctionShape {
   fieldReferences?: FieldReference[];
   /** Whether this function uses userContext() for row-level access control */
   usesUserContext?: boolean;
+  /** Whether this function uses organizationContext() for multi-tenant access control */
+  usesOrganizationContext?: boolean;
 }
 
 /**
@@ -74,6 +76,8 @@ export interface FunctionChange {
   fieldReferencesChanged?: boolean;
   userContextChanged?: boolean;
   usesUserContext?: boolean;
+  organizationContextChanged?: boolean;
+  usesOrganizationContext?: boolean;
 }
 
 /**

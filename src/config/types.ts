@@ -117,6 +117,8 @@ export interface AuthResult {
   groups: string[];
   /** Optional user identity for row-level access control */
   user?: Record<string, unknown>;
+  /** Optional organization context for multi-tenant applications */
+  organization?: Record<string, unknown>;
 }
 
 /**

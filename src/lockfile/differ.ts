@@ -116,6 +116,8 @@ export function diffOntology(
         JSON.stringify(newFn.fieldReferences);
       const userContextChanged =
         !!oldFn.usesUserContext !== !!newFn.usesUserContext;
+      const organizationContextChanged =
+        !!oldFn.usesOrganizationContext !== !!newFn.usesOrganizationContext;
 
       if (
         accessChanged ||
@@ -124,7 +126,8 @@ export function diffOntology(
         outputsChanged ||
         entitiesChanged ||
         fieldReferencesChanged ||
-        userContextChanged
+        userContextChanged ||
+        organizationContextChanged
       ) {
         functions.push({
           name,
@@ -141,6 +144,8 @@ export function diffOntology(
           fieldReferencesChanged: fieldReferencesChanged || undefined,
           userContextChanged: userContextChanged || undefined,
           usesUserContext: userContextChanged ? newFn.usesUserContext : undefined,
+          organizationContextChanged: organizationContextChanged || undefined,
+          usesOrganizationContext: organizationContextChanged ? newFn.usesOrganizationContext : undefined,
         });
       }
     }
@@ -241,6 +246,9 @@ export function formatDiffForConsole(diff: OntologyDiff): string {
         }
         if (fn.userContextChanged) {
           lines.push(`    User context: ${fn.usesUserContext ? 'added' : 'removed'}`);
+        }
+        if (fn.organizationContextChanged) {
+          lines.push(`    Organization context: ${fn.usesOrganizationContext ? 'added' : 'removed'}`);
         }
       }
     }

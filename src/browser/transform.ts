@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { OntologyConfig } from "../config/types.js";
 import type { OntologyDiff, FunctionChange } from "../lockfile/types.js";
-import { getFieldFromMetadata, getUserContextFields } from "../config/categorical.js";
+import { getFieldFromMetadata, getUserContextFields, getOrganizationContextFields } from "../config/categorical.js";
 import {
   isZodObject,
   isZodOptional,
@@ -27,6 +27,7 @@ export interface GraphNode {
     outputs?: Record<string, unknown>;
     functionCount?: number;
     usesUserContext?: boolean;
+    usesOrganizationContext?: boolean;
     isReadOnly?: boolean;
   };
 }
@@ -48,6 +49,7 @@ export interface GraphData {
     totalEntities: number;
     totalAccessGroups: number;
     totalUserContextFunctions: number;
+    totalOrganizationContextFunctions: number;
   };
 }
 
@@ -157,6 +159,7 @@ export function transformToGraphData(config: OntologyConfig): GraphData {
   const accessGroupCounts: Record<string, number> = {};
   const entityCounts: Record<string, number> = {};
   let userContextFunctionCount = 0;
+  let organizationContextFunctionCount = 0;
 
   // Initialize counts
   for (const groupName of Object.keys(config.accessGroups)) {
@@ -187,6 +190,13 @@ export function transformToGraphData(config: OntologyConfig): GraphData {
       userContextFunctionCount++;
     }
 
+    // Check if function uses organizationContext
+    const orgContextFields = getOrganizationContextFields(fn.inputs);
+    const usesOrganizationContext = orgContextFields.length > 0;
+    if (usesOrganizationContext) {
+      organizationContextFunctionCount++;
+    }
+
     // Create function node
     nodes.push({
       id: `function:${name}`,
@@ -197,6 +207,7 @@ export function transformToGraphData(config: OntologyConfig): GraphData {
         inputs: safeZodToJsonSchema(fn.inputs),
         outputs: safeZodToJsonSchema(fn.outputs),
         usesUserContext: usesUserContext || undefined,
+        usesOrganizationContext: usesOrganizationContext || undefined,
         isReadOnly: fn.isReadOnly,
       },
     });
@@ -271,6 +282,7 @@ export function transformToGraphData(config: OntologyConfig): GraphData {
       totalEntities: config.entities ? Object.keys(config.entities).length : 0,
       totalAccessGroups: Object.keys(config.accessGroups).length,
       totalUserContextFunctions: userContextFunctionCount,
+      totalOrganizationContextFunctions: organizationContextFunctionCount,
     },
   };
 }

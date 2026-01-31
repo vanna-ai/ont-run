@@ -7,7 +7,7 @@ import {
   formatDiffForConsole,
   lockfileExists,
 } from "../lockfile/index.js";
-import { validateUserContextRequirements } from "../config/schema.js";
+import { validateUserContextRequirements, validateOrganizationContextRequirements } from "../config/schema.js";
 import { createApiApp } from "./api/index.js";
 import { startMcpServer } from "./mcp/index.js";
 import { serve, type ServerHandle } from "../runtime/index.js";
@@ -77,6 +77,14 @@ export async function startOnt(options: StartOntOptions = {}): Promise<StartOntR
     await validateUserContextRequirements(config);
   } catch (error) {
     consola.error("User context validation failed:");
+    throw error;
+  }
+
+  // Validate organizationContext requirements
+  try {
+    await validateOrganizationContextRequirements(config);
+  } catch (error) {
+    consola.error("Organization context validation failed:");
     throw error;
   }
 

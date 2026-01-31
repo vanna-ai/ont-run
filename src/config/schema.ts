@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getFieldFromMetadata, getUserContextFields } from "./categorical.js";
+import { getFieldFromMetadata, getUserContextFields, getOrganizationContextFields } from "./categorical.js";
 import {
   isZodSchema,
   isZod3Schema,
@@ -281,6 +281,69 @@ export async function validateUserContextRequirements(
   } catch (error) {
     // If auth throws, we can't validate - but that's ok, the error will surface at request time
     if (error instanceof Error && error.message.includes("userContext")) {
+      throw error; // Re-throw our validation error
+    }
+    // Otherwise, auth function had an error with the mock request - skip validation
+  }
+}
+
+/**
+ * Validate that functions using organizationContext() will receive organization data from auth.
+ * This does a runtime check by calling auth with a mock request to verify it returns
+ * an AuthResult with an organization field.
+ *
+ * @param config - The full OntologyConfig (needed for the actual auth function)
+ */
+export async function validateOrganizationContextRequirements(
+  config: OntologyConfig
+): Promise<void> {
+  // Find functions that use organizationContext
+  const functionsWithOrgContext: string[] = [];
+
+  for (const [fnName, fn] of Object.entries(config.functions)) {
+    const orgContextFields = getOrganizationContextFields(fn.inputs as z.ZodType);
+    if (orgContextFields.length > 0) {
+      functionsWithOrgContext.push(fnName);
+    }
+  }
+
+  // If no functions use organizationContext, no validation needed
+  if (functionsWithOrgContext.length === 0) {
+    return;
+  }
+
+  // Create a mock request to test the auth function
+  const mockRequest = new Request("http://localhost/test?org_id=test-org", {
+    headers: { Authorization: "test-token" },
+  });
+
+  try {
+    const authResult = await config.auth(mockRequest);
+
+    // Check if auth returns an object with organization field
+    const hasOrgField =
+      authResult !== null &&
+      typeof authResult === "object" &&
+      !Array.isArray(authResult) &&
+      "organization" in authResult;
+
+    if (!hasOrgField) {
+      throw new Error(
+        `The following functions use organizationContext() but auth() does not return an organization object:\n` +
+          `  ${functionsWithOrgContext.join(", ")}\n\n` +
+          `To fix this, update your auth function to return an AuthResult:\n` +
+          `  auth: async (req) => {\n` +
+          `    const orgId = new URL(req.url).searchParams.get('org_id');\n` +
+          `    return {\n` +
+          `      groups: ['member'],\n` +
+          `      organization: { id: orgId, name: '...' }  // Add organization data here\n` +
+          `    };\n` +
+          `  }`
+      );
+    }
+  } catch (error) {
+    // If auth throws, we can't validate - but that's ok, the error will surface at request time
+    if (error instanceof Error && error.message.includes("organizationContext")) {
       throw error; // Re-throw our validation error
     }
     // Otherwise, auth function had an error with the mock request - skip validation

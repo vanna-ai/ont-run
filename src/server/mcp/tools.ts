@@ -7,7 +7,7 @@ import type {
   AuthResult,
   UiConfig,
 } from "../../config/types.js";
-import { getFieldFromMetadata, getUserContextFields, hasUserContextMetadata } from "../../config/categorical.js";
+import { getFieldFromMetadata, getUserContextFields, getOrganizationContextFields, hasUserContextMetadata, hasOrganizationContextMetadata } from "../../config/categorical.js";
 import {
   isZodObject,
   isZodOptional,
@@ -79,6 +79,48 @@ function stripUserContextFromJsonSchema(
     : undefined;
 
   for (const field of userContextFields) {
+    delete properties[field];
+    if (required) {
+      const idx = required.indexOf(field);
+      if (idx !== -1) {
+        required.splice(idx, 1);
+      }
+    }
+  }
+
+  return {
+    ...jsonSchema,
+    properties,
+    required: required && required.length > 0 ? required : undefined,
+  };
+}
+
+/**
+ * Strip organizationContext fields from a JSON Schema object.
+ * These fields are injected at runtime and should not be exposed to callers.
+ */
+function stripOrganizationContextFromJsonSchema(
+  jsonSchema: Record<string, unknown>,
+  zodSchema: z.ZodType<unknown>
+): Record<string, unknown> {
+  // Only strip from object schemas
+  if (jsonSchema.type !== "object" || !jsonSchema.properties) {
+    return jsonSchema;
+  }
+
+  // Get organizationContext field names from the Zod schema
+  const orgContextFields = getOrganizationContextFields(zodSchema);
+  if (orgContextFields.length === 0) {
+    return jsonSchema;
+  }
+
+  // Create a new schema without organizationContext fields
+  const properties = { ...(jsonSchema.properties as Record<string, unknown>) };
+  const required = jsonSchema.required
+    ? [...(jsonSchema.required as string[])]
+    : undefined;
+
+  for (const field of orgContextFields) {
     delete properties[field];
     if (required) {
       const idx = required.indexOf(field);
@@ -179,6 +221,8 @@ export function generateMcpTools(config: OntologyConfig): McpTool[] {
       delete inputSchema.$schema;
       // Strip userContext fields - these are injected at runtime
       inputSchema = stripUserContextFromJsonSchema(inputSchema, fn.inputs);
+      // Strip organizationContext fields - these are also injected at runtime
+      inputSchema = stripOrganizationContextFromJsonSchema(inputSchema, fn.inputs);
     } catch {
       inputSchema = { type: "object", properties: {} };
     }
@@ -247,8 +291,10 @@ export function createToolExecutor(
 ) {
   // Pre-compute userContext fields for each function
   const userContextFieldsCache = new Map<string, string[]>();
+  const orgContextFieldsCache = new Map<string, string[]>();
   for (const [name, fn] of Object.entries(config.functions)) {
     userContextFieldsCache.set(name, getUserContextFields(fn.inputs));
+    orgContextFieldsCache.set(name, getOrganizationContextFields(fn.inputs));
   }
 
   return async (toolName: string, args: unknown, authResult: AuthResult): Promise<unknown> => {
@@ -276,6 +322,15 @@ export function createToolExecutor(
       argsWithContext = { ...(args as Record<string, unknown>) };
       for (const field of userContextFields) {
         (argsWithContext as Record<string, unknown>)[field] = authResult.user;
+      }
+    }
+
+    // Inject organization context if function requires it
+    const orgContextFields = orgContextFieldsCache.get(toolName) || [];
+    if (orgContextFields.length > 0 && authResult.organization) {
+      argsWithContext = { ...(argsWithContext as Record<string, unknown>) };
+      for (const field of orgContextFields) {
+        (argsWithContext as Record<string, unknown>)[field] = authResult.organization;
       }
     }
 
