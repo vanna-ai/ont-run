@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { OntologyConfig, FunctionDefinition } from "../../config/types.js";
-import { getUserContextFields } from "../../config/categorical.js";
+import { getUserContextFields, getOrganizationContextFields } from "../../config/categorical.js";
 import {
   createAccessControlMiddleware,
   type OntologyVariables,
@@ -18,8 +18,9 @@ export function createApiRoutes(
   for (const [name, fn] of Object.entries(config.functions)) {
     const path = `/${name}`;
 
-    // Pre-compute userContext fields for this function
+    // Pre-compute userContext and organizationContext fields for this function
     const userContextFields = getUserContextFields(fn.inputs);
+    const orgContextFields = getOrganizationContextFields(fn.inputs);
 
     router.post(
       path,
@@ -43,6 +44,14 @@ export function createApiRoutes(
             }
           }
 
+          // Inject organization context if function requires it
+          if (orgContextFields.length > 0 && authResult.organization) {
+            body = { ...body };
+            for (const field of orgContextFields) {
+              (body as Record<string, unknown>)[field] = authResult.organization;
+            }
+          }
+
           const parsed = fn.inputs.safeParse(body);
 
           if (!parsed.success) {
@@ -57,13 +66,20 @@ export function createApiRoutes(
 
           args = parsed.data;
         } catch {
-          // No body or invalid JSON - try with empty object (with user context if needed)
+          // No body or invalid JSON - try with empty object (with user/org context if needed)
           let emptyBody: Record<string, unknown> = {};
 
           // Inject user context even for empty body
           if (userContextFields.length > 0 && authResult.user) {
             for (const field of userContextFields) {
               emptyBody[field] = authResult.user;
+            }
+          }
+
+          // Inject organization context even for empty body
+          if (orgContextFields.length > 0 && authResult.organization) {
+            for (const field of orgContextFields) {
+              emptyBody[field] = authResult.organization;
             }
           }
 

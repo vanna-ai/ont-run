@@ -8,7 +8,7 @@ import type { OntologyDiff } from "../lockfile/types.js";
 import { writeLockfile } from "../lockfile/index.js";
 import { serve, findAvailablePort } from "../runtime/index.js";
 import { transformToGraphData, enhanceWithDiff, searchNodes, getNodeDetails, type EnhancedGraphData } from "./transform.js";
-import { getFieldFromMetadata, hasUserContextMetadata } from "../config/categorical.js";
+import { getFieldFromMetadata, hasUserContextMetadata, hasOrganizationContextMetadata } from "../config/categorical.js";
 import { isZodObject, isZodOptional, isZodNullable, isZodDefault, isZodArray, getObjectShape, getInnerSchema, getArrayElement } from "../config/zod-utils.js";
 
 export interface BrowserServerOptions {
@@ -36,6 +36,7 @@ interface FieldInfo {
   type: string;
   required: boolean;
   isUserContext: boolean;
+  isOrganizationContext: boolean;
   fieldFrom?: string;
   isQueryBased?: boolean;
   schema: Record<string, unknown>;
@@ -88,6 +89,9 @@ function analyzeField(name: string, schema: z.ZodTypeAny, functions?: Record<str
   // Check for userContext
   const isUserContext = hasUserContextMetadata(schema) || hasUserContextMetadata(unwrapped);
 
+  // Check for organizationContext
+  const isOrganizationContext = hasOrganizationContextMetadata(schema) || hasOrganizationContextMetadata(unwrapped);
+
   // Check for fieldFrom
   const fieldFromMeta = getFieldFromMetadata(schema) || getFieldFromMetadata(unwrapped);
   const fieldFrom = fieldFromMeta?.functionName;
@@ -118,6 +122,10 @@ function analyzeField(name: string, schema: z.ZodTypeAny, functions?: Record<str
   if (isUserContext && isZodObject(unwrapped)) {
     innerSchema = jsonSchema;
   }
+  // Get inner schema for organizationContext fields (the shape of the expected object)
+  if (isOrganizationContext && isZodObject(unwrapped)) {
+    innerSchema = jsonSchema;
+  }
 
   // Determine field type
   let type = (jsonSchema.type as string) || "unknown";
@@ -125,6 +133,8 @@ function analyzeField(name: string, schema: z.ZodTypeAny, functions?: Record<str
     type = "fieldFrom";
   } else if (isUserContext) {
     type = "userContext";
+  } else if (isOrganizationContext) {
+    type = "organizationContext";
   } else if (jsonSchema.enum) {
     type = "enum";
   }
@@ -134,6 +144,7 @@ function analyzeField(name: string, schema: z.ZodTypeAny, functions?: Record<str
     type,
     required,
     isUserContext,
+    isOrganizationContext,
     fieldFrom,
     isQueryBased: isQueryBased || undefined,
     schema: jsonSchema,
@@ -430,6 +441,12 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
   const userContextFilterBtn = graphData.meta.totalUserContextFunctions > 0
     ? `<button class="filter-btn" data-filter="userContext" title="Functions using userContext()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>User Context (${graphData.meta.totalUserContextFunctions})
+        </button>`
+    : '';
+
+  const orgContextFilterBtn = graphData.meta.totalOrganizationContextFunctions > 0
+    ? `<button class="filter-btn" data-filter="organizationContext" title="Functions using organizationContext()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>Org Context (${graphData.meta.totalOrganizationContextFunctions})
         </button>`
     : '';
 
@@ -735,6 +752,27 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
     }
 
     .user-context-badge svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    /* Organization Context Badge */
+    .org-context-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-size: 10px;
+      font-weight: 500;
+      background: rgba(191, 19, 99, 0.12);
+      color: var(--vanna-magenta);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-left: 8px;
+    }
+
+    .org-context-badge svg {
       width: 12px;
       height: 12px;
     }
@@ -2631,6 +2669,7 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
           <span class="dot access"></span> Access
         </button>
         ${userContextFilterBtn}
+        ${orgContextFilterBtn}
       </div>
 
       <div class="layout-selector">
@@ -2790,6 +2829,7 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
             changeStatus: node.changeStatus || 'unchanged',
             changeDetails: node.changeDetails || null,
             usesUserContext: node.metadata?.usesUserContext || false,
+            usesOrganizationContext: node.metadata?.usesOrganizationContext || false,
             isReadOnly: node.metadata?.isReadOnly,
           },
         });
@@ -3160,6 +3200,11 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
         ? \`<span class="user-context-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>User Context</span>\`
         : '';
 
+      // Build organization context badge if applicable
+      const orgContextBadge = data.metadata?.usesOrganizationContext
+        ? \`<span class="org-context-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>Org Context</span>\`
+        : '';
+
       // Build read-only badge for functions
       const readOnlyBadge = data.type === 'function' && data.isReadOnly !== undefined
         ? \`<span class="readonly-badge \${data.isReadOnly ? 'query' : 'mutation'}">\${data.isReadOnly ? 'Query' : 'Mutation'}</span>\`
@@ -3167,7 +3212,7 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
 
       let html = \`
         <div class="detail-header">
-          <div class="detail-type \${data.type}">\${formatType(data.type)}\${changeBadge}\${readOnlyBadge}\${userContextBadge}</div>
+          <div class="detail-type \${data.type}">\${formatType(data.type)}\${changeBadge}\${readOnlyBadge}\${userContextBadge}\${orgContextBadge}</div>
           <div class="detail-name">\${data.label}</div>
           <div class="detail-description">\${data.description || 'No description'}</div>
         </div>
@@ -3472,6 +3517,16 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
         // Special filter: show only functions with userContext
         cy.nodes().forEach(node => {
           if (node.data('type') === 'function' && node.data('usesUserContext')) {
+            node.removeClass('hidden');
+          } else {
+            node.addClass('hidden');
+          }
+        });
+        cy.edges().addClass('hidden');
+      } else if (filter === 'organizationContext') {
+        // Special filter: show only functions with organizationContext
+        cy.nodes().forEach(node => {
+          if (node.data('type') === 'function' && node.data('usesOrganizationContext')) {
             node.removeClass('hidden');
           } else {
             node.addClass('hidden');
@@ -4036,10 +4091,11 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
       const body = document.getElementById('testModalBody');
       const { name, description, schema } = data;
 
-      // Separate fields into regular, fieldFrom, and userContext
-      const regularFields = schema.filter(f => !f.isUserContext && !f.fieldFrom);
+      // Separate fields into regular, fieldFrom, userContext, and organizationContext
+      const regularFields = schema.filter(f => !f.isUserContext && !f.isOrganizationContext && !f.fieldFrom);
       const fieldFromFields = schema.filter(f => f.fieldFrom);
       const userContextFields = schema.filter(f => f.isUserContext);
+      const orgContextFields = schema.filter(f => f.isOrganizationContext);
 
       let html = '';
 
@@ -4120,6 +4176,30 @@ function generateBrowserUI(graphData: EnhancedGraphData): string {
 
         for (const field of userContextFields) {
           html += renderUserContextField(field);
+        }
+
+        html += '</div>';
+      }
+
+      // OrganizationContext fields (mocked)
+      if (orgContextFields.length > 0) {
+        html += \`
+          <div class="user-context-section">
+            <div class="user-context-header">
+              <div class="user-context-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  <path d="M9 3v18"/>
+                  <path d="M15 3v18"/>
+                </svg>
+                Mock Organization Context
+              </div>
+              <span class="mock-badge">Test Only</span>
+            </div>
+        \`;
+
+        for (const field of orgContextFields) {
+          html += renderUserContextField(field); // Reuse same rendering function
         }
 
         html += '</div>';
