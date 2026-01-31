@@ -10,6 +10,7 @@ import { serve, findAvailablePort } from "../runtime/index.js";
 import { transformToGraphData, enhanceWithDiff, searchNodes, getNodeDetails, type EnhancedGraphData } from "./transform.js";
 import { getFieldFromMetadata, hasUserContextMetadata, hasOrganizationContextMetadata } from "../config/categorical.js";
 import { isZodObject, isZodOptional, isZodNullable, isZodDefault, isZodArray, getObjectShape, getInnerSchema, getArrayElement } from "../config/zod-utils.js";
+import { browserAppHtml } from "./browser-app.js";
 
 export interface BrowserServerOptions {
   config: OntologyConfig;
@@ -396,8 +397,8 @@ export async function startBrowserServer(options: BrowserServerOptions): Promise
       }
     });
 
-    // Serve UI
-    app.get("/", (c) => c.html(generateBrowserUI(graphData)));
+    // Serve UI (use bundled browser-app HTML instead of generateBrowserUI)
+    app.get("/", (c) => c.html(browserAppHtml));
 
     // Start server
     const port = preferredPort || (await findAvailablePort(3457));
