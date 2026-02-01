@@ -25,13 +25,13 @@ writeFileSync(outputPath, sdkCode, 'utf-8');
 console.log('✓ TypeScript SDK generated at', outputPath);
 console.log('');
 console.log('Usage:');
-console.log('  import { api, apiHooks } from \\'./generated/api\\';');
+console.log('  import { api, apiHooks } from './generated/api';');
 console.log('');
 console.log('  // Vanilla fetch API:');
-console.log('  const user = await api.getUser({ userId: \\'123\\' });');
+console.log('  const user = await api.getUser({ userId: '123' });');
 console.log('');
 console.log('  // React hooks:');
-console.log('  const { data } = apiHooks.useGetUser({ userId: \\'123\\' });');
+console.log('  const { data } = apiHooks.useGetUser({ userId: '123' });');
 `;
 
 export const readmeSdkSectionTemplate = `

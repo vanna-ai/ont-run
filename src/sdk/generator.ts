@@ -168,7 +168,9 @@ export const apiHooks = {
     for (const [name, fn] of Object.entries(config.functions)) {
       const typeName = pascalCase(name);
       const hasInput = hasNonContextInputs(fn);
-      const isReadOnly = fn.isReadOnly !== false; // Default to true if not specified
+      // Use explicit isReadOnly value if provided, otherwise default to true
+      // Note: Functions should explicitly set isReadOnly: false if they mutate data
+      const isReadOnly = fn.isReadOnly !== false;
 
       if (isReadOnly) {
         // Use useQuery for read-only operations
@@ -213,7 +215,8 @@ function hasNonContextInputs(fn: FunctionDefinition): boolean {
   const contextFields = new Set([...userContextFields, ...orgContextFields]);
 
   // Check if the input schema has any fields beyond context fields
-  const def = fn.inputs._def as any;
+  // Use type assertion for _def since it's not in public API but is stable
+  const def = (fn.inputs as any)._def;
   if (def?.typeName === 'ZodObject') {
     const shape = typeof def.shape === 'function' ? def.shape() : def.shape || {};
     const fieldNames = Object.keys(shape);
@@ -228,8 +231,14 @@ function hasNonContextInputs(fn: FunctionDefinition): boolean {
  */
 function generateTypeFromSchema(schema: z.ZodType, typeName: string): string | null {
   try {
-    // Convert Zod schema to JSON schema first
-    const jsonSchema = schema.toJSONSchema ? schema.toJSONSchema({ reused: 'inline' }) : null;
+    // Convert Zod schema to JSON schema
+    // Note: toJSONSchema is available in Zod 4+
+    const toJSONSchemaFn = (schema as any).toJSONSchema;
+    if (typeof toJSONSchemaFn !== 'function') {
+      throw new Error('toJSONSchema method not available. Zod 4+ is required.');
+    }
+    
+    const jsonSchema = toJSONSchemaFn.call(schema, { reused: 'inline' });
     
     if (!jsonSchema) {
       // Fallback: use generic unknown type
