@@ -16,3 +16,4 @@ export { homeRouteTemplate, dashboardRouteTemplate, aboutRouteTemplate } from ".
 export { healthCheckResolver, getUserResolver, deleteUserResolver, getSalesDataResolver } from "./resolvers.js";
 export { skillTemplate } from "./skills.js";
 export { gitignoreTemplate } from "./gitignore.js";
+export { generateSdkScriptTemplate, readmeSdkSectionTemplate } from "./scripts.js";
