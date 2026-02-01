@@ -2,6 +2,7 @@ import { defineCommand, runMain } from "citty";
 import { initCommand } from "./commands/init/index.js";
 import { reviewCommand } from "./commands/review.js";
 import { loginCommand } from "./commands/login.js";
+import { generateSdkCommand } from "./commands/generate-sdk.js";
 import pkg from "../../package.json";
 
 const main = defineCommand({
@@ -14,6 +15,7 @@ const main = defineCommand({
     init: initCommand,
     review: reviewCommand,
     login: loginCommand,
+    "generate-sdk": generateSdkCommand,
   },
 });
 

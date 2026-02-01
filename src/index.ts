@@ -37,6 +37,9 @@ export { fieldFrom, userContext, organizationContext } from "./config/categorica
 export { startOnt } from "./server/start.js";
 export type { StartOntOptions, StartOntResult } from "./server/start.js";
 
+// SDK Generation
+export { generateSdk, type GenerateSdkOptions } from "./sdk/index.js";
+
 // Server utilities for custom server setup
 export { createApiApp } from "./server/api/index.js";
 export type { ApiServerOptions } from "./server/api/index.js";
