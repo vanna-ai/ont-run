@@ -168,8 +168,8 @@ export const apiHooks = {
     for (const [name, fn] of Object.entries(config.functions)) {
       const typeName = pascalCase(name);
       const hasInput = hasNonContextInputs(fn);
-      // Use explicit isReadOnly value if provided, otherwise default to true
-      // Note: Functions should explicitly set isReadOnly: false if they mutate data
+      // Use isReadOnly flag when explicitly provided; if undefined/absent, treat function as read-only
+      // Functions that mutate data must explicitly set isReadOnly: false to be treated as mutations
       const isReadOnly = fn.isReadOnly !== false;
 
       if (isReadOnly) {
