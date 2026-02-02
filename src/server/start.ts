@@ -108,12 +108,14 @@ export async function startOnt(options: StartOntOptions = {}): Promise<StartOntR
     const diff = diffOntology(oldOntology, ontology);
 
     if (diff.hasChanges) {
-      const message = `Ontology has changed since last review.\nRun \`bun run review\` to approve the changes.`;
+      const message = `ONTOLOGY CHANGES DETECTED - HUMAN APPROVAL REQUIRED.\nA human must run \`npx ont-run review\` to approve the changes.`;
 
       if (isDev) {
-        consola.warn("Ontology Lockfile mismatch detected:");
+        consola.warn("⚠️  ONTOLOGY CHANGES DETECTED - HUMAN APPROVAL REQUIRED ⚠️");
         console.log("\n" + formatDiffForConsole(diff) + "\n");
-        consola.warn("Run `npx ont-run review` to approve these changes.\n");
+        consola.warn("🛑 STOP: If you are a coding agent (e.g., Claude, Copilot, Cursor), DO NOT attempt to approve these changes yourself.");
+        consola.warn("👤 Only a HUMAN can review and approve ontology changes for security reasons.");
+        consola.warn("📋 Ask the human user to run `npx ont-run review` to approve these changes.\n");
       } else {
         consola.error(message);
         console.log("\n" + formatDiffForConsole(diff) + "\n");

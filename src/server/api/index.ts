@@ -74,16 +74,18 @@ export function createApiApp(options: ApiServerOptions): Hono<{ Variables: Ontol
 
         if (diff.hasChanges) {
           if (isDev) {
-            consola.warn("Ontology Lockfile mismatch detected:");
+            consola.warn("⚠️  ONTOLOGY CHANGES DETECTED - HUMAN APPROVAL REQUIRED ⚠️");
             console.log("\n" + formatDiffForConsole(diff) + "\n");
-            consola.warn("Auto-launching review UI to approve the changes.\n");
+            consola.warn("🛑 STOP: If you are a coding agent (e.g., Claude, Copilot, Cursor), DO NOT attempt to approve these changes yourself.");
+            consola.warn("👤 Only a HUMAN can review and approve ontology changes for security reasons.");
+            consola.warn("📋 Ask the human user to review the changes above and approve them in the browser window.\n");
 
             // Auto-launch review UI in background
             launchReviewInBackground({ config, diff, configDir, configPath });
           } else {
             console.log("\n" + formatDiffForConsole(diff) + "\n");
             throw new Error(
-              "Ontology Lockfile mismatch in production mode. Run `npx ont-run review` to approve the changes."
+              "ONTOLOGY CHANGES DETECTED - HUMAN APPROVAL REQUIRED. A human must run `npx ont-run review` to approve the changes."
             );
           }
         } else {
