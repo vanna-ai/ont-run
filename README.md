@@ -138,6 +138,52 @@ The resolver context provides:
 - `ctx.logger` — Logger instance
 - `ctx.accessGroups` — Access groups for the request
 
+## TypeScript SDK Generation
+
+ont-run automatically generates type-safe TypeScript SDKs from your ontology, ensuring your frontend and backend stay perfectly in sync.
+
+```bash
+npm run generate-sdk
+```
+
+This creates `src/generated/api.ts` with:
+- **Type-safe interfaces** for all function inputs and outputs
+- **API client** with methods for each function
+- **React Query hooks** for easy React integration
+
+### Usage Example
+
+```typescript
+import { api, apiHooks } from './generated/api';
+
+// Vanilla TypeScript - fully typed!
+const user = await api.getUser({ userId: '123' });
+console.log(user.name); // TypeScript knows this exists
+
+// React component with hooks
+function UserProfile({ userId }: { userId: string }) {
+  const { data, isLoading } = apiHooks.useGetUser({ userId });
+  
+  if (isLoading) return <div>Loading...</div>;
+  
+  return (
+    <div>
+      <h1>{data.name}</h1>
+      <p>{data.email}</p>
+      <Badge>{data.role}</Badge> {/* TypeScript validates this! */}
+    </div>
+  );
+}
+```
+
+**What This Enables:**
+- ✅ Single source of truth - Your ontology defines the API contract
+- ✅ Type safety - Changes to backend schemas are caught at compile time
+- ✅ No manual sync - Regenerate SDK when schemas change
+- ✅ IntelliSense - Full autocomplete in your IDE
+
+When you add a field to your ontology's output schema, TypeScript immediately knows about it in your frontend code. No more runtime mismatches or hunting through code to find what broke.
+
 ## Configuration Reference
 
 ```typescript

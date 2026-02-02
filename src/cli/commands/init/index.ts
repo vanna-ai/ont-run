@@ -27,6 +27,8 @@ import {
   getSalesDataResolver,
   skillTemplate,
   gitignoreTemplate,
+  generateSdkScriptTemplate,
+  readmeSdkSectionTemplate,
 } from "./templates/index.js";
 
 /**
@@ -93,6 +95,7 @@ export const initCommand = defineCommand({
       "src/routes",
       "src/components",
       "resolvers",
+      "scripts",
       ".claude/skills/ont-run",
     ];
 
@@ -110,6 +113,7 @@ export const initCommand = defineCommand({
       ["ontology.config.ts", configTemplate],
       ["vite.config.ts", buildTemplate],
       ["tsconfig.json", tsconfigTemplate],
+      ["README.md", readmeSdkSectionTemplate],
 
       // src/ files
       ["src/index.ts", serverTemplate],
@@ -134,6 +138,9 @@ export const initCommand = defineCommand({
       ["resolvers/getUser.ts", getUserResolver],
       ["resolvers/deleteUser.ts", deleteUserResolver],
       ["resolvers/getSalesData.ts", getSalesDataResolver],
+
+      // scripts/
+      ["scripts/generate-sdk.ts", generateSdkScriptTemplate],
 
       // .claude/skills/
       [".claude/skills/ont-run/SKILL.md", skillTemplate],
@@ -176,6 +183,7 @@ export const initCommand = defineCommand({
       preview: "vite preview",
       review: "npx ont-run review",
       typecheck: "tsc --noEmit",
+      "generate-sdk": "tsx scripts/generate-sdk.ts",
     };
     packageJson.dependencies = {
       ...(packageJson.dependencies as Record<string, string> || {}),

@@ -15,6 +15,7 @@ import type {
   AuthFunction,
   ResolverFunction,
   UiConfig,
+  CloudConfig,
 } from "./types.js";
 
 /**
@@ -63,6 +64,8 @@ export function defineOntology<
   TFunctions extends Record<string, FunctionDefinition<TGroups, TEntities, any, any>>,
 >(config: {
   name: string;
+  uuid?: string;
+  cloud?: boolean | CloudConfig;
   environments: Record<string, EnvironmentConfig>;
   auth: AuthFunction;
   accessGroups: Record<TGroups, AccessGroupConfig>;
