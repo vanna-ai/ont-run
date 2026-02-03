@@ -65,7 +65,9 @@ import (
 
 func DefineOntology() *ont.Config {
 	return &ont.Config{
-		Name: "{{PROJECT_NAME}}",
+		Name:  "{{PROJECT_NAME}}",
+		UUID:  "{{UUID}}",  // Unique identifier for cloud registration
+		Cloud: true,        // Enable cloud registration with ont-run.com
 
 		AccessGroups: map[string]ont.AccessGroup{
 			"public": {

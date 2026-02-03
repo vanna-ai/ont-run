@@ -7,7 +7,9 @@ import (
 
 func DefineOntology() *ont.Config {
 	return &ont.Config{
-		Name: "basic-app",
+		Name:  "basic-app",
+		UUID:  "example-basic-app-uuid",  // Replace with a real UUID in production
+		Cloud: true,                      // Enable cloud registration with ont-run.com
 
 		AccessGroups: map[string]ont.AccessGroup{
 			"public": {

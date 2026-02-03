@@ -2,6 +2,7 @@ import { defineCommand } from "citty";
 import { existsSync, mkdirSync, writeFileSync, readdirSync } from "fs";
 import { spawn } from "child_process";
 import { join, isAbsolute, basename } from "path";
+import { randomUUID } from "crypto";
 import consola from "consola";
 
 import {
@@ -59,8 +60,12 @@ function runCommand(command: string, args: string[], cwd?: string): Promise<bool
 /**
  * Replace template placeholders
  */
-function replaceTemplateVars(content: string, projectName: string): string {
-  return content.replace(/\{\{PROJECT_NAME\}\}/g, projectName);
+function replaceTemplateVars(content: string, projectName: string, uuid?: string): string {
+  let result = content.replace(/\{\{PROJECT_NAME\}\}/g, projectName);
+  if (uuid) {
+    result = result.replace(/\{\{UUID\}\}/g, uuid);
+  }
+  return result;
 }
 
 export const initGoCommand = defineCommand({
@@ -119,11 +124,14 @@ export const initGoCommand = defineCommand({
       }
     }
 
+    // Generate a UUID for this project (used for cloud registration)
+    const projectUuid = randomUUID();
+
     // Backend Go files
     const backendFiles: Array<[string, string]> = [
       ["backend/go.mod", replaceTemplateVars(goModTemplate, projectName)],
       ["backend/main.go", goMainTemplate],
-      ["backend/ontology.config.go", replaceTemplateVars(goOntologyConfigTemplate, projectName)],
+      ["backend/ontology.config.go", replaceTemplateVars(goOntologyConfigTemplate, projectName, projectUuid)],
       ["backend/resolvers/health_check.go", goHealthCheckResolverTemplate],
       ["backend/resolvers/get_user.go", goGetUserResolverTemplate],
       ["backend/resolvers/delete_user.go", goDeleteUserResolverTemplate],

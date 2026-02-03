@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/vanna-ai/ont-run/pkg/cloud"
 	ont "github.com/vanna-ai/ont-run/pkg/ontology"
 )
 
@@ -95,6 +96,11 @@ func (s *Server) Handler() http.Handler {
 
 // Serve starts the server on the given address.
 func (s *Server) Serve(addr string) error {
+	// Cloud registration (if enabled)
+	if s.config.Cloud && s.config.UUID != "" {
+		cloud.TryRegisterWithCloud(s.config.UUID, s.config)
+	}
+
 	log.Printf("Starting server on %s", addr)
 	return http.ListenAndServe(addr, s.Handler())
 }
