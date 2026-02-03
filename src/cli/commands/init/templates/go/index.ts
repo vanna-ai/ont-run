@@ -455,6 +455,45 @@ This project uses ontology-based access control:
 - **admin** - Administrators with full access
 
 Configure access groups in \`backend/ontology.config.go\`.
+
+## Cloud Integration
+
+This project integrates with [ont-run.com](https://ont-run.com) for AI agent access control.
+
+### What Gets Sent to ont-run.com
+
+When cloud registration is enabled, the following is sent:
+
+- Function names and descriptions
+- Access groups and their descriptions
+- Entities and their descriptions
+- Input/output schemas (as JSON Schema)
+
+### What is NOT Sent
+
+The following stays local and is never sent to the cloud:
+
+- Resolver code (your business logic)
+- Environment variables and configs
+- Auth functions and secrets
+- Actual data processed by your API
+
+### Configuration
+
+Cloud registration is controlled by two fields in \`backend/ontology.config.go\`:
+
+\`\`\`go
+UUID:  "your-project-uuid",  // Unique identifier
+Cloud: true,                  // Enable/disable cloud registration
+\`\`\`
+
+To authenticate with ont-run.com, set the \`ONT_API_KEY\` environment variable:
+
+\`\`\`bash
+export ONT_API_KEY=your-api-key
+\`\`\`
+
+Get your API key by running \`npx ont-run login\`.
 `;
 
 export const goViteConfigTemplate = `import { defineConfig } from 'vite'
@@ -555,4 +594,33 @@ This project uses ont-run, an ontology-first API framework.
 
 Functions are protected by access groups defined in the ontology.
 The \`Access\` field specifies which groups can call each function.
+
+## Cloud Integration
+
+This project can integrate with [ont-run.com](https://ont-run.com) for AI agent access control.
+
+### What Gets Sent to ont-run.com
+
+- Function names and descriptions
+- Access groups and their descriptions
+- Entities and their descriptions
+- Input/output schemas (as JSON Schema)
+
+### What is NOT Sent
+
+- Resolver code (your business logic)
+- Environment variables and configs
+- Auth functions and secrets
+- Actual data processed by your API
+
+### Configuration
+
+Cloud registration is controlled in \`backend/ontology.config.go\`:
+
+\`\`\`go
+UUID:  "your-project-uuid",  // Unique identifier
+Cloud: true,                  // Enable/disable cloud registration
+\`\`\`
+
+Set \`ONT_API_KEY\` environment variable to authenticate with ont-run.com.
 `;
