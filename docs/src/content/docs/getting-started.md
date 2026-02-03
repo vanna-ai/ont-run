@@ -12,7 +12,7 @@ ont-run supports both **TypeScript** and **Go** backends. Choose your preferred 
 npx ont-run init my-api
 
 # Go backend
-npx ont-run init --go my-api
+npx ont-run init-go my-api
 ```
 
 ---
@@ -115,7 +115,7 @@ npx ont-run review
 ### 1. Initialize project
 
 ```bash
-npx ont-run init --go my-api
+npx ont-run init-go my-api
 cd my-api/backend
 ```
 

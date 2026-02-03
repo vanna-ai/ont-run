@@ -137,7 +137,7 @@ WARN  Run `npx ont-run review` to approve these changes.
 npx ont-run init my-api
 
 # Go backend
-npx ont-run init --go my-api
+npx ont-run init-go my-api
 ```
 
 This creates a new project with the ont-run framework configured.
@@ -156,7 +156,7 @@ npm run dev        # Start dev server at http://localhost:3000
 ### Go Backend
 
 ```bash
-npx ont-run init --go my-api
+npx ont-run init-go my-api
 cd my-api/backend
 go run .           # Starts server, generates ont.lock and TypeScript SDK
 ```
@@ -408,7 +408,7 @@ export default async function editPost(
 
 ```bash
 npx ont-run init [dir]       # Initialize TypeScript project
-npx ont-run init --go [dir]  # Initialize Go project
+npx ont-run init-go [dir]  # Initialize Go project
 npx ont-run review           # Review and approve ontology changes (TypeScript only)
 ```
 
