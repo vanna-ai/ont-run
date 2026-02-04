@@ -19,6 +19,7 @@ type Server struct {
 	config   *ont.Config
 	logger   ont.Logger
 	authFunc AuthFunc
+	staticFS http.FileSystem
 }
 
 // AuthFunc is a function that authenticates a request and returns access groups.
@@ -44,6 +45,14 @@ func WithLogger(logger ont.Logger) ServerOption {
 func WithAuth(authFunc AuthFunc) ServerOption {
 	return func(s *Server) {
 		s.authFunc = authFunc
+	}
+}
+
+// WithStaticFS sets the static file system for serving frontend assets.
+// In production, pass an embed.FS wrapped with http.FS() to serve embedded files.
+func WithStaticFS(fs http.FileSystem) ServerOption {
+	return func(s *Server) {
+		s.staticFS = fs
 	}
 }
 
@@ -90,6 +99,31 @@ func (s *Server) Handler() http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	})
+
+	// Static file serving (for production builds with embedded frontend)
+	if s.staticFS != nil {
+		fileServer := http.FileServer(s.staticFS)
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			// Try to serve the file
+			path := r.URL.Path
+			if path == "/" {
+				path = "/index.html"
+			}
+
+			// Check if file exists
+			f, err := s.staticFS.Open(path)
+			if err != nil {
+				// File not found - serve index.html for SPA routing
+				r.URL.Path = "/index.html"
+				fileServer.ServeHTTP(w, r)
+				return
+			}
+			f.Close()
+
+			// Serve the file
+			fileServer.ServeHTTP(w, r)
+		})
+	}
 
 	return mux
 }

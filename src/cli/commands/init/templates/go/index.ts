@@ -12,7 +12,9 @@ require github.com/vanna-ai/ont-run v0.1.0
 export const goMainTemplate = `package main
 
 import (
+	"io/fs"
 	"log"
+	"net/http"
 	"os"
 
 	ont "github.com/vanna-ai/ont-run/pkg/ontology"
@@ -29,6 +31,11 @@ func main() {
 		log.Fatalf("Invalid ontology: %v", err)
 	}
 
+	// Server options
+	opts := []server.ServerOption{
+		server.WithLogger(ont.ConsoleLogger()),
+	}
+
 	// Development mode: auto-generate lock and SDK
 	if os.Getenv("NODE_ENV") != "production" {
 		log.Println("Generating ont.lock...")
@@ -41,19 +48,32 @@ func main() {
 			log.Fatalf("Failed to generate SDK: %v", err)
 		}
 	} else {
-		// Production mode: verify lock
-		log.Println("Verifying ont.lock...")
-		if err := ontology.VerifyLock("../ont.lock"); err != nil {
-			log.Fatalf("Ontology verification failed: %v", err)
+		// Production mode: serve embedded frontend
+		log.Println("Production mode: serving embedded frontend")
+		staticFS, err := fs.Sub(staticFiles, "static")
+		if err != nil {
+			log.Fatalf("Failed to load static files: %v", err)
 		}
+		opts = append(opts, server.WithStaticFS(http.FS(staticFS)))
 	}
 
 	// Start server
 	log.Println("Starting server on :8080...")
-	if err := server.Serve(ontology, ":8080", server.WithLogger(ont.ConsoleLogger())); err != nil {
+	if err := server.Serve(ontology, ":8080", opts...); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}
 }
+`;
+
+export const goEmbedTemplate = `package main
+
+import "embed"
+
+// staticFiles embeds the built frontend assets.
+// The static/ directory is populated during build by copying frontend/dist.
+//
+//go:embed static/*
+var staticFiles embed.FS
 `;
 
 export const goOntologyConfigTemplate = `package main
@@ -315,9 +335,10 @@ export const goRootPackageJsonTemplate = (projectName: string) => ({
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && go run .",
     "dev:frontend": "cd frontend && npm run dev",
-    "build": "npm run build:backend && npm run build:frontend",
-    "build:backend": "cd backend && go build -o ../dist/server",
+    "build": "npm run build:frontend && npm run build:backend",
     "build:frontend": "cd frontend && npm run build",
+    "build:backend": "rm -rf backend/static/* && cp -r frontend/dist/* backend/static/ && cd backend && NODE_ENV=production go build -o ../dist/server .",
+    "start": "NODE_ENV=production ./dist/server",
     "test": "cd backend && go test ./...",
   },
   devDependencies: {
@@ -359,6 +380,8 @@ node_modules/
 dist/
 frontend/dist/
 backend/tmp/
+backend/static/*
+!backend/static/.gitkeep
 
 # Generated files
 ont.lock

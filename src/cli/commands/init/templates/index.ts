@@ -23,6 +23,7 @@ export { generateSdkScriptTemplate, readmeSdkSectionTemplate } from "./scripts.j
 export {
   goModTemplate,
   goMainTemplate,
+  goEmbedTemplate,
   goOntologyConfigTemplate,
   goHealthCheckResolverTemplate,
   goGetUserResolverTemplate,

@@ -8,6 +8,7 @@ import consola from "consola";
 import {
   goModTemplate,
   goMainTemplate,
+  goEmbedTemplate,
   goOntologyConfigTemplate,
   goHealthCheckResolverTemplate,
   goGetUserResolverTemplate,
@@ -109,6 +110,7 @@ export const initGoCommand = defineCommand({
     const dirs = [
       "backend",
       "backend/resolvers",
+      "backend/static",
       "frontend",
       "frontend/src",
       "frontend/src/routes",
@@ -131,11 +133,14 @@ export const initGoCommand = defineCommand({
     const backendFiles: Array<[string, string]> = [
       ["backend/go.mod", replaceTemplateVars(goModTemplate, projectName)],
       ["backend/main.go", goMainTemplate],
+      ["backend/embed.go", goEmbedTemplate],
       ["backend/ontology.config.go", replaceTemplateVars(goOntologyConfigTemplate, projectName, projectUuid)],
       ["backend/resolvers/health_check.go", goHealthCheckResolverTemplate],
       ["backend/resolvers/get_user.go", goGetUserResolverTemplate],
       ["backend/resolvers/delete_user.go", goDeleteUserResolverTemplate],
       ["backend/resolvers/get_sales_data.go", goGetSalesDataResolverTemplate],
+      // Placeholder for embedded frontend (populated during build)
+      ["backend/static/.gitkeep", "# This directory holds the built frontend assets for embedding\n"],
     ];
 
     // Frontend files
