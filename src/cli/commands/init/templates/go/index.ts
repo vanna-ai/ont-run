@@ -15,7 +15,6 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
-	"os"
 
 	ont "github.com/vanna-ai/ont-run/pkg/ontology"
 	"github.com/vanna-ai/ont-run/pkg/codegen/typescript"
@@ -36,25 +35,23 @@ func main() {
 		server.WithLogger(ont.ConsoleLogger()),
 	}
 
-	// Development mode: auto-generate lock and SDK
-	if os.Getenv("NODE_ENV") != "production" {
-		log.Println("Generating ont.lock...")
+	// Check if we have embedded static files (production build)
+	staticFS, err := fs.Sub(staticFiles, "static")
+	hasStaticFiles := err == nil && hasFiles(staticFS)
+
+	if hasStaticFiles {
+		// Production mode: serve embedded frontend
+		log.Println("Serving embedded frontend")
+		opts = append(opts, server.WithStaticFS(http.FS(staticFS)))
+	} else {
+		// Development mode: auto-generate lock and SDK
+		log.Println("Development mode: generating ont.lock and SDK...")
 		if err := ontology.WriteLock("../ont.lock"); err != nil {
 			log.Fatalf("Failed to generate lock: %v", err)
 		}
-
-		log.Println("Generating TypeScript SDK...")
 		if err := typescript.GenerateTypeScript(ontology, "../frontend/src/sdk"); err != nil {
 			log.Fatalf("Failed to generate SDK: %v", err)
 		}
-	} else {
-		// Production mode: serve embedded frontend
-		log.Println("Production mode: serving embedded frontend")
-		staticFS, err := fs.Sub(staticFiles, "static")
-		if err != nil {
-			log.Fatalf("Failed to load static files: %v", err)
-		}
-		opts = append(opts, server.WithStaticFS(http.FS(staticFS)))
 	}
 
 	// Start server
@@ -62,6 +59,20 @@ func main() {
 	if err := server.Serve(ontology, ":8080", opts...); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}
+}
+
+// hasFiles checks if the filesystem has any real files (not just .gitkeep)
+func hasFiles(fsys fs.FS) bool {
+	entries, err := fs.ReadDir(fsys, ".")
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if e.Name() != ".gitkeep" {
+			return true
+		}
+	}
+	return false
 }
 `;
 
@@ -337,8 +348,8 @@ export const goRootPackageJsonTemplate = (projectName: string) => ({
     "dev:frontend": "cd frontend && npm run dev",
     "build": "npm run build:frontend && npm run build:backend",
     "build:frontend": "cd frontend && npm run build",
-    "build:backend": "rm -rf backend/static/* && cp -r frontend/dist/* backend/static/ && cd backend && NODE_ENV=production go build -o ../dist/server .",
-    "start": "NODE_ENV=production ./dist/server",
+    "build:backend": "rm -rf backend/static/* && cp -r frontend/dist/* backend/static/ && cd backend && go build -o ../dist/server .",
+    "start": "./dist/server",
     "test": "cd backend && go test ./...",
   },
   devDependencies: {
