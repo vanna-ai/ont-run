@@ -4,6 +4,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"reflect"
@@ -102,27 +103,36 @@ func (s *Server) Handler() http.Handler {
 
 	// Static file serving (for production builds with embedded frontend)
 	if s.staticFS != nil {
-		fileServer := http.FileServer(s.staticFS)
-		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			// Try to serve the file
+		mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			path := r.URL.Path
-			if path == "/" {
-				path = "/index.html"
+
+			// Try to serve the actual file first
+			if path != "/" {
+				// Check if file exists in static FS
+				if f, err := s.staticFS.Open(path); err == nil {
+					f.Close()
+					http.FileServer(s.staticFS).ServeHTTP(w, r)
+					return
+				}
 			}
 
-			// Check if file exists
-			f, err := s.staticFS.Open(path)
+			// Serve index.html for root and SPA routes
+			f, err := s.staticFS.Open("/index.html")
 			if err != nil {
-				// File not found - serve index.html for SPA routing
-				r.URL.Path = "/index.html"
-				fileServer.ServeHTTP(w, r)
+				http.Error(w, "index.html not found", http.StatusInternalServerError)
 				return
 			}
-			f.Close()
+			defer f.Close()
 
-			// Serve the file
-			fileServer.ServeHTTP(w, r)
-		})
+			stat, err := f.Stat()
+			if err != nil {
+				http.Error(w, "Failed to stat index.html", http.StatusInternalServerError)
+				return
+			}
+
+			// Serve index.html
+			http.ServeContent(w, r, "index.html", stat.ModTime(), f.(io.ReadSeeker))
+		}))
 	}
 
 	return mux
