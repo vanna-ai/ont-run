@@ -638,7 +638,7 @@ import { VannaCard } from "../components/VannaCard";
 import { VannaButton } from "../components/VannaButton";
 import { OntologyClient, type HealthCheckOutput } from "../sdk";
 
-const client = new OntologyClient("http://localhost:8080");
+const client = new OntologyClient(); // Uses relative URLs, proxied by Vite in dev
 
 export function Home() {
   const [health, setHealth] = useState<HealthCheckOutput | null>(null);
@@ -711,7 +711,7 @@ import { VannaCard } from "../components/VannaCard";
 import { VannaButton } from "../components/VannaButton";
 import { OntologyClient, type GetSalesDataOutput } from "../sdk";
 
-const client = new OntologyClient("http://localhost:8080");
+const client = new OntologyClient(); // Uses relative URLs, proxied by Vite in dev
 
 interface ChartDataPoint {
   month: string;

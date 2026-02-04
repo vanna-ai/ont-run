@@ -180,7 +180,7 @@ func generateClient(config *ontology.Config, outputDir string) error {
 
 	// Generate client class
 	buf.WriteString("export class OntologyClient {\n")
-	buf.WriteString("  constructor(private baseUrl: string = 'http://localhost:8080') {}\n\n")
+	buf.WriteString("  constructor(private baseUrl: string = '') {}\n\n")
 
 	// Get sorted function names for deterministic output
 	funcNames := make([]string, 0, len(config.Functions))
