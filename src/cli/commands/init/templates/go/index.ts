@@ -708,7 +708,6 @@ import {
 } from "recharts";
 import { StatsCard } from "../components/StatsCard";
 import { VannaCard } from "../components/VannaCard";
-import { VannaButton } from "../components/VannaButton";
 import { OntologyClient, type GetSalesDataOutput } from "../sdk";
 
 const client = new OntologyClient(); // Uses relative URLs, proxied by Vite in dev
