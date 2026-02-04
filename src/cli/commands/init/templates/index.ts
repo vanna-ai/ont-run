@@ -39,4 +39,6 @@ export {
   goMainTsxTemplate,
   goIndexCssTemplate,
   goSkillTemplate,
+  goHomeRouteTemplate,
+  goDashboardRouteTemplate,
 } from "./go/index.js";

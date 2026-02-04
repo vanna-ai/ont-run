@@ -23,13 +23,13 @@ import {
   goMainTsxTemplate,
   goIndexCssTemplate,
   goSkillTemplate,
+  goHomeRouteTemplate,
+  goDashboardRouteTemplate,
   // Reuse frontend component templates
   layoutTemplate,
   vannaButtonTemplate,
   vannaCardTemplate,
   statsCardTemplate,
-  homeRouteTemplate,
-  dashboardRouteTemplate,
   aboutRouteTemplate,
   appTemplate,
 } from "./init/templates/index.js";
@@ -151,9 +151,9 @@ export const initGoCommand = defineCommand({
       ["frontend/src/components/VannaButton.tsx", vannaButtonTemplate],
       ["frontend/src/components/VannaCard.tsx", vannaCardTemplate],
       ["frontend/src/components/StatsCard.tsx", statsCardTemplate],
-      // Routes
-      ["frontend/src/routes/home.tsx", homeRouteTemplate],
-      ["frontend/src/routes/dashboard.tsx", dashboardRouteTemplate],
+      // Routes (Go-specific templates that use the generated SDK)
+      ["frontend/src/routes/home.tsx", goHomeRouteTemplate],
+      ["frontend/src/routes/dashboard.tsx", goDashboardRouteTemplate],
       ["frontend/src/routes/about.tsx", aboutRouteTemplate],
     ];
 

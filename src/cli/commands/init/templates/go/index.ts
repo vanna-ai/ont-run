@@ -628,3 +628,216 @@ Cloud: true,                  // Enable/disable cloud registration
 
 Set \`ONT_API_KEY\` environment variable to authenticate with ont-run.com.
 `;
+
+// Go-specific route templates that use the generated SDK
+
+export const goHomeRouteTemplate = `import { useState, useEffect } from "react";
+import { Loader2, CheckCircle, XCircle, ChevronRight } from "lucide-react";
+import { Link } from "react-router-dom";
+import { VannaCard } from "../components/VannaCard";
+import { VannaButton } from "../components/VannaButton";
+import { OntologyClient, type HealthCheckOutput } from "../sdk";
+
+const client = new OntologyClient("http://localhost:8080");
+
+export function Home() {
+  const [health, setHealth] = useState<HealthCheckOutput | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    client.healthCheck({})
+      .then((data) => {
+        setHealth(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, []);
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-4xl font-bold font-serif text-navy">Welcome to ont-run</h1>
+        <p className="mt-4 text-lg text-navy/70">
+          Your Go backend is ready. Edit <code className="px-2 py-1 bg-teal/10 rounded font-mono text-sm">backend/ontology.config.go</code> to define your API.
+        </p>
+      </div>
+
+      <VannaCard title="Backend Status" className="max-w-md">
+        <div className="flex items-center gap-3">
+          {loading ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin text-teal" />
+              <span className="text-navy/70">Checking backend...</span>
+            </>
+          ) : error ? (
+            <>
+              <XCircle className="w-5 h-5 text-red-500" />
+              <span className="text-red-600">Backend not responding</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle className="w-5 h-5 text-green-500" />
+              <span className="text-green-700">Backend is healthy</span>
+              <span className="text-navy/50 text-sm">({health?.timestamp})</span>
+            </>
+          )}
+        </div>
+      </VannaCard>
+
+      <div className="flex gap-4">
+        <Link to="/dashboard">
+          <VannaButton>
+            View Dashboard <ChevronRight className="w-4 h-4 ml-1" />
+          </VannaButton>
+        </Link>
+      </div>
+    </div>
+  );
+}
+`;
+
+export const goDashboardRouteTemplate = `import { useState, useEffect } from "react";
+import { Activity, Users, Zap, Clock, BarChart3, Bot, Loader2 } from "lucide-react";
+import {
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, Legend
+} from "recharts";
+import { StatsCard } from "../components/StatsCard";
+import { VannaCard } from "../components/VannaCard";
+import { VannaButton } from "../components/VannaButton";
+import { OntologyClient, type GetSalesDataOutput } from "../sdk";
+
+const client = new OntologyClient("http://localhost:8080");
+
+interface ChartDataPoint {
+  month: string;
+  sales: number;
+  orders: number;
+}
+
+export function Dashboard() {
+  const [salesData, setSalesData] = useState<ChartDataPoint[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    client.getSalesData({})
+      .then((data: GetSalesDataOutput) => {
+        // Transform the data to match chart format
+        const chartData = data.data.map((d) => ({
+          month: d.date,
+          sales: d.revenue,
+          orders: d.orders,
+        }));
+        setSalesData(chartData);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, []);
+
+  // Calculate stats from sales data
+  const totalSales = salesData.reduce((sum, d) => sum + d.sales, 0);
+  const totalOrders = salesData.reduce((sum, d) => sum + d.orders, 0);
+  const avgSales = salesData.length > 0 ? Math.round(totalSales / salesData.length) : 0;
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold font-serif text-navy">Dashboard</h1>
+        <p className="mt-2 text-navy/60">Sales data fetched from your Ontology API via the generated SDK.</p>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatsCard
+          title="Total Revenue"
+          value={\`$\${totalSales.toLocaleString()}\`}
+          icon={Activity}
+          change={12}
+          loading={loading}
+        />
+        <StatsCard
+          title="Total Orders"
+          value={totalOrders.toString()}
+          icon={Users}
+          change={8}
+          loading={loading}
+        />
+        <StatsCard
+          title="Avg Revenue"
+          value={\`$\${avgSales.toLocaleString()}\`}
+          icon={Zap}
+          change={-3}
+          loading={loading}
+        />
+        <StatsCard
+          title="Data Points"
+          value={salesData.length.toString()}
+          icon={Clock}
+          loading={loading}
+        />
+      </div>
+
+      {error && (
+        <VannaCard title="Error" className="border-red-200 bg-red-50">
+          <p className="text-red-600">{error}</p>
+          <p className="text-sm text-red-500 mt-2">Make sure the Go backend is running on port 8080.</p>
+        </VannaCard>
+      )}
+
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <VannaCard title="Revenue Trend" icon={BarChart3}>
+          {loading ? (
+            <div className="h-64 flex items-center justify-center">
+              <Loader2 className="w-8 h-8 animate-spin text-teal" />
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={250}>
+              <AreaChart data={salesData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Area
+                  type="monotone"
+                  dataKey="sales"
+                  stroke="#15a8a8"
+                  fill="#15a8a8"
+                  fillOpacity={0.2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </VannaCard>
+
+        <VannaCard title="Orders by Period" icon={Bot}>
+          {loading ? (
+            <div className="h-64 flex items-center justify-center">
+              <Loader2 className="w-8 h-8 animate-spin text-teal" />
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={salesData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="orders" fill="#1a2f4a" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </VannaCard>
+      </div>
+    </div>
+  );
+}
+`;
