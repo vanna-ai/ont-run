@@ -33,6 +33,7 @@ func main() {
 	// Server options
 	opts := []server.ServerOption{
 		server.WithLogger(ont.ConsoleLogger()),
+		server.WithAuth(authFunc),
 	}
 
 	// Check if we have embedded static files (production build)
@@ -59,6 +60,31 @@ func main() {
 	if err := server.Serve(ontology, ":8080", opts...); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}
+}
+
+// authFunc is the pluggable authentication function.
+// Customize this to integrate your auth system (JWTs, API keys, sessions, etc.)
+func authFunc(r *http.Request) (*server.AuthResult, error) {
+	// Default: grant all access groups (for development/demo)
+	// TODO: Replace with your actual auth logic
+	//
+	// Example implementation:
+	//   header := r.Header.Get("Authorization")
+	//   if header == "" {
+	//       return &server.AuthResult{AccessGroups: []string{"public"}}, nil
+	//   }
+	//   if strings.HasPrefix(header, "Bearer ") {
+	//       token := strings.TrimPrefix(header, "Bearer ")
+	//       // Validate JWT, extract claims, determine groups
+	//       return &server.AuthResult{
+	//           AccessGroups: []string{"public", "support"},
+	//           UserContext: map[string]any{"userId": "from-token"},
+	//       }, nil
+	//   }
+
+	return &server.AuthResult{
+		AccessGroups: []string{"public", "support", "admin"},
+	}, nil
 }
 
 // hasFiles checks if the filesystem has any real files (not just .gitkeep)
