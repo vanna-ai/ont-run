@@ -2,6 +2,7 @@
 // Template Exports
 // ============================================================================
 
+// TypeScript backend templates (legacy)
 export { configTemplate, buildTemplate, tsconfigTemplate } from "./config.js";
 export { serverTemplate, htmlTemplate } from "./server.js";
 export { cssTemplate } from "./css.js";
@@ -17,3 +18,28 @@ export { healthCheckResolver, getUserResolver, deleteUserResolver, getSalesDataR
 export { skillTemplate } from "./skills.js";
 export { gitignoreTemplate } from "./gitignore.js";
 export { generateSdkScriptTemplate, readmeSdkSectionTemplate } from "./scripts.js";
+
+// Go backend templates
+export {
+  goModTemplate,
+  goMainTemplate,
+  goEmbedTemplate,
+  goOntologyConfigTemplate,
+  goHealthCheckResolverTemplate,
+  goGetUserResolverTemplate,
+  goDeleteUserResolverTemplate,
+  goGetSalesDataResolverTemplate,
+  airTomlTemplate,
+  goRootPackageJsonTemplate,
+  goFrontendPackageJsonTemplate,
+  goGitignoreTemplate,
+  goReadmeTemplate,
+  goViteConfigTemplate,
+  goTsconfigTemplate,
+  goIndexHtmlTemplate,
+  goMainTsxTemplate,
+  goIndexCssTemplate,
+  goSkillTemplate,
+  goHomeRouteTemplate,
+  goDashboardRouteTemplate,
+} from "./go/index.js";

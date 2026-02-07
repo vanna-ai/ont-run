@@ -4,11 +4,16 @@
 
 A web framework designed for the era of coding agents. You define the ontology—what operations exist and who can perform them. AI writes the implementation.
 
+Supports both **TypeScript** and **Go** backends.
+
 
 
 https://github.com/user-attachments/assets/93fbf862-aca3-422d-8f0c-1fc1e4510d88
 
 
+
+<details>
+<summary><b>TypeScript Example</b></summary>
 
 ```typescript
 // ontology.config.ts
@@ -41,9 +46,59 @@ export default defineOntology({
       resolver: assignTicket,
     },
   },
-  // ...
 });
 ```
+
+</details>
+
+<details open>
+<summary><b>Go Example</b></summary>
+
+```go
+// ontology.config.go
+package main
+
+import (
+    ont "github.com/vanna-ai/ont-run/pkg/ontology"
+    "myapp/resolvers"
+)
+
+func DefineOntology() *ont.Config {
+    return &ont.Config{
+        Name: "support-desk",
+
+        AccessGroups: map[string]ont.AccessGroup{
+            "public":  {Description: "Unauthenticated users"},
+            "support": {Description: "Support agents"},
+            "admin":   {Description: "Administrators"},
+        },
+
+        Functions: map[string]ont.Function{
+            "getTicket": {
+                Description: "Get ticket details",
+                Access:      []string{"support", "admin"},
+                Entities:    []string{"Ticket"},
+                Inputs:      ont.Object(map[string]ont.Schema{
+                    "ticketId": ont.String().UUID(),
+                }),
+                Resolver: resolvers.GetTicket,
+            },
+            "assignTicket": {
+                Description: "Assign ticket to an agent",
+                Access:      []string{"admin"}, // If AI tries to add "public", review is triggered
+                Entities:    []string{"Ticket"},
+                Inputs:      ont.Object(map[string]ont.Schema{
+                    "ticketId": ont.String().UUID(),
+                    "assignee": ont.String(),
+                }),
+                Resolver: resolvers.AssignTicket,
+            },
+        },
+    }
+}
+```
+
+</details>
 
 ## How It Works
 
@@ -78,41 +133,45 @@ WARN  Run `npx ont-run review` to approve these changes.
 ## Installation
 
 ```bash
+# TypeScript backend (default)
 npx ont-run init my-api
+
+# Go backend
+npx ont-run init-go my-api
 ```
 
 This creates a new project with the ont-run framework configured.
 
 ## Quick Start
 
-### 1. Initialize
+### TypeScript Backend
 
 ```bash
 npx ont-run init my-api
 cd my-api
+npm run review     # Approve initial ontology
+npm run dev        # Start dev server at http://localhost:3000
 ```
 
-### 2. Review the initial ontology
+### Go Backend
 
 ```bash
-npm run review
+npx ont-run init-go my-api
+cd my-api/backend
+go run .           # Starts server, generates ont.lock and TypeScript SDK
 ```
 
-Opens a browser showing all functions and access groups. Click **Approve** to generate `ont.lock`.
-
-### 3. Start the server
-
-The generated project includes a full-stack setup with Vite + React Router for the frontend and Hono for the backend.
-
-```bash
-npm run dev
-```
-
-Your API is running at `http://localhost:3000`.
+The Go server automatically:
+- Generates `ont.lock` on startup (dev mode)
+- Generates TypeScript SDK to `frontend/src/sdk/`
+- Verifies `ont.lock` in production (`NODE_ENV=production`)
 
 ## Writing Resolvers
 
 Resolvers are where AI writes the implementation:
+
+<details>
+<summary><b>TypeScript Resolver</b></summary>
 
 ```typescript
 // resolvers/assignTicket.ts
@@ -132,11 +191,46 @@ export default async function assignTicket(
 }
 ```
 
+</details>
+
+<details open>
+<summary><b>Go Resolver</b></summary>
+
+```go
+// resolvers/assign_ticket.go
+package resolvers
+
+import (
+    ont "github.com/vanna-ai/ont-run/pkg/ontology"
+)
+
+func AssignTicket(ctx ont.Context, input any) (any, error) {
+    args := input.(map[string]any)
+    ticketID := args["ticketId"].(string)
+    assignee := args["assignee"].(string)
+
+    // AI can modify this freely—no review required
+    ticket, err := db.Tickets.Update(ticketID, map[string]any{
+        "assigneeId": assignee,
+    })
+    if err != nil {
+        return nil, err
+    }
+
+    return map[string]any{
+        "id":         ticket.ID,
+        "assignedTo": assignee,
+    }, nil
+}
+```
+
+</details>
+
 The resolver context provides:
-- `ctx.env` — Current environment name
-- `ctx.envConfig` — Environment configuration
-- `ctx.logger` — Logger instance
-- `ctx.accessGroups` — Access groups for the request
+- `ctx.Request()` — HTTP request
+- `ctx.Logger()` — Logger instance
+- `ctx.AccessGroups()` — Access groups for the request
+- `ctx.UserContext()` — User-specific context data
 
 ## TypeScript SDK Generation
 
@@ -313,8 +407,35 @@ export default async function editPost(
 ## CLI Commands
 
 ```bash
-npx ont-run init [dir]    # Initialize a new project
-npx ont-run review        # Review and approve ontology changes
+npx ont-run init [dir]       # Initialize TypeScript project
+npx ont-run init-go [dir]  # Initialize Go project
+npx ont-run review           # Review and approve ontology changes (TypeScript only)
+```
+
+## Go Schema API
+
+The Go library provides a Zod-like schema API:
+
+```go
+import ont "github.com/vanna-ai/ont-run/pkg/ontology"
+
+// Primitives
+ont.String()                    // string
+ont.String().UUID()             // string with UUID format
+ont.String().Email()            // string with email format
+ont.String().DateTime()         // string with date-time format
+ont.Integer()                   // integer
+ont.Integer().Min(1).Max(100)   // integer with range
+ont.Number()                    // float64
+ont.Boolean()                   // boolean
+
+// Complex types
+ont.Array(ont.String())         // []string
+ont.Object(map[string]ont.Schema{
+    "name": ont.String(),
+    "age":  ont.Integer(),
+})
+ont.Nullable(ont.String())      // string | null
 ```
 
 ## API Endpoints

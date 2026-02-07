@@ -94,39 +94,62 @@ export function VannaButton({
 }
 `;
 
-export const vannaCardTemplate = `import type { ReactNode } from "react";
+export const vannaCardTemplate = `import type { ReactNode, ComponentType } from "react";
 
 interface VannaCardProps {
   children: ReactNode;
   className?: string;
   hover?: boolean;
+  title?: string;
+  icon?: ComponentType<{ className?: string }>;
 }
 
-export function VannaCard({ children, className = "", hover = false }: VannaCardProps) {
+export function VannaCard({ children, className = "", hover = false, title, icon: Icon }: VannaCardProps) {
   return (
     <div
       className={\`bg-white rounded-xl p-6 shadow-vanna \${
         hover ? "transition-shadow hover:shadow-vanna-lg" : ""
       } \${className}\`}
     >
+      {(title || Icon) && (
+        <div className="flex items-center gap-2 mb-4">
+          {Icon && <Icon className="w-5 h-5 text-teal" />}
+          {title && <h3 className="font-semibold text-navy">{title}</h3>}
+        </div>
+      )}
       {children}
     </div>
   );
 }
 `;
 
-export const statsCardTemplate = `import type { ReactNode } from "react";
-import { TrendingUp, TrendingDown } from "lucide-react";
+export const statsCardTemplate = `import type { ComponentType } from "react";
+import { TrendingUp, TrendingDown, Loader2 } from "lucide-react";
 
 interface StatsCardProps {
   title: string;
   value: string;
   change?: number;
-  icon?: ReactNode;
+  icon?: ComponentType<{ className?: string }>;
+  loading?: boolean;
 }
 
-export function StatsCard({ title, value, change, icon }: StatsCardProps) {
+export function StatsCard({ title, value, change, icon: Icon, loading }: StatsCardProps) {
   const isPositive = change !== undefined && change >= 0;
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl p-6 shadow-vanna">
+        <div className="flex items-start justify-between">
+          <div className="space-y-2">
+            <div className="h-4 w-20 bg-navy/10 rounded animate-pulse" />
+            <div className="h-8 w-28 bg-navy/10 rounded animate-pulse" />
+          </div>
+          <Loader2 className="w-6 h-6 animate-spin text-teal" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-xl p-6 shadow-vanna">
@@ -141,9 +164,9 @@ export function StatsCard({ title, value, change, icon }: StatsCardProps) {
             </div>
           )}
         </div>
-        {icon && (
+        {Icon && (
           <div className="p-3 bg-teal/10 rounded-lg text-teal">
-            {icon}
+            <Icon className="w-6 h-6" />
           </div>
         )}
       </div>

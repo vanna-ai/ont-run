@@ -7,3 +7,7 @@ dist/
 test-project/
 tmp/
 .claude/skills/Create MCP App/SKILL.md
+
+# Generated example artifacts
+examples/frontend/
+examples/ont.lock

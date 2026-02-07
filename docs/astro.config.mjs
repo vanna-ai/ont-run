@@ -91,6 +91,7 @@ export default defineConfig({
             { label: "Field References", link: "/guides/field-references/" },
             { label: "Access Control", link: "/guides/access-control/" },
             { label: "Output Schemas", link: "/guides/output-schemas/" },
+            { label: "Cloud Integration", link: "/guides/cloud-integration/" },
             { label: "MCP App Visualization UI", link: "/guides/ui-visualization/" },
           ],
         },

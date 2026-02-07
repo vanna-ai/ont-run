@@ -44,42 +44,66 @@ The ontology is your operational DNA. AI writes code, but only humans change wha
   <Card title="MCP Integration" icon="puzzle">
     Functions are automatically exposed as MCP tools. AI agents see only what their *user* is allowed to call.
   </Card>
-  <Card title="Type-Safe" icon="seti:typescript">
-    Full TypeScript support with Zod schemas for runtime validation.
+  <Card title="TypeScript & Go" icon="seti:typescript">
+    Write your backend in TypeScript or Go. Both support Zod-like schemas and automatic SDK generation.
   </Card>
 </CardGrid>
 
 ## Quick Example
 
+**TypeScript:**
+
 ```typescript
-import { defineOntology, fieldFrom, z } from 'ont-run';
+import { defineOntology, z } from 'ont-run';
 import getUser from './resolvers/getUser.js';
 
 export default defineOntology({
   name: 'my-api',
-
   accessGroups: {
     public: { description: 'Unauthenticated users' },
     admin: { description: 'Administrators' },
   },
-
   entities: {
     User: { description: 'A user account' },
   },
-
   functions: {
     getUser: {
       description: 'Get user by ID',
       access: ['admin'],
       entities: ['User'],
       inputs: z.object({ id: z.string().uuid() }),
-      outputs: z.object({
-        id: z.string(),
-        name: z.string(),
-        email: z.string(),
-      }),
       resolver: getUser,
     },
   },
 });
+```
+
+**Go:**
+
+```go
+import ont "github.com/vanna-ai/ont-run/pkg/ontology"
+
+func DefineOntology() *ont.Config {
+    return &ont.Config{
+        Name: "my-api",
+        AccessGroups: map[string]ont.AccessGroup{
+            "public": {Description: "Unauthenticated users"},
+            "admin":  {Description: "Administrators"},
+        },
+        Entities: map[string]ont.Entity{
+            "User": {Description: "A user account"},
+        },
+        Functions: map[string]ont.Function{
+            "getUser": {
+                Description: "Get user by ID",
+                Access:      []string{"admin"},
+                Entities:    []string{"User"},
+                Inputs:      ont.Object(map[string]ont.Schema{
+                    "id": ont.String().UUID(),
+                }),
+                Resolver: resolvers.GetUser,
+            },
+        },
+    }
+}
 ```
