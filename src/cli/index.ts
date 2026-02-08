@@ -1,5 +1,6 @@
 import { defineCommand, runMain } from "citty";
 import { initCommand } from "./commands/init/index.js";
+import { initGoCommand } from "./commands/init-go.js";
 import { reviewCommand } from "./commands/review.js";
 import { loginCommand } from "./commands/login.js";
 import { generateSdkCommand } from "./commands/generate-sdk.js";
@@ -13,6 +14,7 @@ const main = defineCommand({
   },
   subCommands: {
     init: initCommand,
+    "init-go": initGoCommand,
     review: reviewCommand,
     login: loginCommand,
     "generate-sdk": generateSdkCommand,
