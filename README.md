@@ -165,6 +165,22 @@ The Go server automatically:
 - Generates `ont.lock` on startup (dev mode)
 - Generates TypeScript SDK to `frontend/src/sdk/`
 - Verifies `ont.lock` in production (`NODE_ENV=production`)
+- Exposes functions via both REST API and [MCP protocol](https://modelcontextprotocol.io)
+
+#### MCP Inspector Support
+
+The Go server is fully compatible with the [MCP Inspector](https://github.com/modelcontextprotocol/inspector) for testing and debugging:
+
+```bash
+# Start your server
+go run .
+
+# In another terminal, launch the inspector
+npx @modelcontextprotocol/inspector
+# Then connect to: http://localhost:8080/mcp
+```
+
+See [docs/MCP_INSPECTOR.md](docs/MCP_INSPECTOR.md) for details.
 
 ## Writing Resolvers
 

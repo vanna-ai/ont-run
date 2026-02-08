@@ -11,3 +11,8 @@ tmp/
 # Generated example artifacts
 examples/frontend/
 examples/ont.lock
+
+# Go build artifacts
+examples/*/basic
+examples/*/*.exe
+*.exe
