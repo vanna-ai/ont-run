@@ -220,7 +220,7 @@ func (s *Server) createMCPHandler() http.Handler {
 	for name, fn := range s.config.Functions {
 		toolName := name
 		funcDef := fn
-		
+
 		// Create tool with JSON Schema
 		tool := &mcp.Tool{
 			Name:        toolName,
@@ -247,7 +247,7 @@ func (s *Server) createMCPToolHandler(name string, fn ont.Function) func(context
 		httpReq := &http.Request{
 			Header: http.Header{},
 		}
-		
+
 		// Authenticate
 		authResult, err := s.authFunc(httpReq)
 		if err != nil {
