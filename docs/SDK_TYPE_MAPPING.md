@@ -10,10 +10,10 @@ When generating TypeScript SDKs from Zod schemas, it's important to understand t
 
 | Zod Schema | Generated TypeScript | Accepts | Required? |
 |------------|---------------------|---------|-----------|
-| `z.string().optional()` | `field?: string` | `string \| undefined` | No |
-| `z.string().nullable()` | `field: string \| null` | `string \| null` | Yes |
-| `z.string().nullable().optional()` | `field?: string \| null` | `string \| null \| undefined` | No |
-| `z.string().nullish()` | `field?: string \| null` | `string \| null \| undefined` | No |
+| `z.string().optional()` | `field?: string` | `string` or `undefined` | No |
+| `z.string().nullable()` | `field: string \| null` | `string` or `null` | Yes |
+| `z.string().nullable().optional()` | `field?: string \| null` | `string`, `null`, or `undefined` | No |
+| `z.string().nullish()` | `field?: string \| null` | `string`, `null`, or `undefined` | No |
 
 ### TypeScript Semantics
 
