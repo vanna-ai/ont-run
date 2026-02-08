@@ -321,7 +321,6 @@ func ptr(s string) *string {
 // Usage
 Input{Description: ptr("Hello")}
 ```
-5. **Use `omitempty` tag** for optional fields in JSON serialization
 
 ## Regenerating the SDK
 
