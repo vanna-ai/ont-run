@@ -2,15 +2,15 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"reflect"
-	"sort"
-	"strings"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/vanna-ai/ont-run/pkg/cloud"
 	ont "github.com/vanna-ai/ont-run/pkg/ontology"
 )
@@ -90,10 +90,9 @@ func (s *Server) Handler() http.Handler {
 		mux.HandleFunc("/api/"+funcName, s.handleFunction(funcName, funcDef))
 	}
 
-	// MCP endpoints
-	mux.HandleFunc("/mcp", s.handleMCP)
-	mux.HandleFunc("/mcp/tools", s.handleMCPTools)
-	mux.HandleFunc("/mcp/call/", s.handleMCPCall)
+	// MCP endpoint using official SDK
+	mcpHandler := s.createMCPHandler()
+	mux.Handle("/mcp", mcpHandler)
 
 	// Health check
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -209,87 +208,89 @@ func (s *Server) handleFunction(name string, fn ont.Function) http.HandlerFunc {
 	}
 }
 
-// MCPToolsResponse is the response for the /mcp/tools endpoint.
-type MCPToolsResponse struct {
-	Tools []MCPTool `json:"tools"`
-}
+// createMCPHandler creates an MCP handler using the official SDK.
+func (s *Server) createMCPHandler() http.Handler {
+	// Create MCP server
+	mcpServer := mcp.NewServer(&mcp.Implementation{
+		Name:    s.config.Name,
+		Version: "1.0.0",
+	}, nil)
 
-// MCPTool represents a tool in the MCP protocol.
-type MCPTool struct {
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	InputSchema map[string]any `json:"inputSchema"`
-}
-
-func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
-	// MCP server info
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{
-		"name":        s.config.Name,
-		"version":     "1.0",
-		"description": fmt.Sprintf("%s Ontology API", s.config.Name),
-		"endpoints": map[string]string{
-			"tools": "/mcp/tools",
-			"call":  "/mcp/call/{toolName}",
-		},
-	})
-}
-
-func (s *Server) handleMCPTools(w http.ResponseWriter, r *http.Request) {
-	// Authenticate to filter tools by access
-	authResult, err := s.authFunc(r)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Authentication failed: %v", err), http.StatusUnauthorized)
-		return
-	}
-
-	tools := make([]MCPTool, 0)
-
-	// Get sorted function names for deterministic output
-	funcNames := make([]string, 0, len(s.config.Functions))
-	for name := range s.config.Functions {
-		funcNames = append(funcNames, name)
-	}
-	sort.Strings(funcNames)
-
-	for _, name := range funcNames {
-		fn := s.config.Functions[name]
-
-		// Only include tools the user has access to
-		if !fn.CheckAccess(authResult.AccessGroups) {
-			continue
+	// Add tools for each function
+	for name, fn := range s.config.Functions {
+		toolName := name
+		funcDef := fn
+		
+		// Create tool with JSON Schema
+		tool := &mcp.Tool{
+			Name:        toolName,
+			Description: funcDef.Description,
 		}
 
-		tools = append(tools, MCPTool{
-			Name:        name,
-			Description: fn.Description,
-			InputSchema: fn.Inputs.JSONSchema(),
-		})
+		// Add the tool with a handler
+		mcp.AddTool(mcpServer, tool, s.createMCPToolHandler(toolName, funcDef))
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(MCPToolsResponse{Tools: tools})
+	// Create HTTP handler using StreamableHTTP transport
+	handler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
+		return mcpServer
+	}, nil)
+
+	return handler
 }
 
-func (s *Server) handleMCPCall(w http.ResponseWriter, r *http.Request) {
-	// Extract tool name from path
-	path := r.URL.Path
-	prefix := "/mcp/call/"
-	if !strings.HasPrefix(path, prefix) {
-		http.Error(w, "Invalid path", http.StatusBadRequest)
-		return
-	}
-	toolName := path[len(prefix):]
+// createMCPToolHandler creates an MCP tool handler for a given function.
+func (s *Server) createMCPToolHandler(name string, fn ont.Function) func(context.Context, *mcp.CallToolRequest, map[string]any) (*mcp.CallToolResult, any, error) {
+	return func(ctx context.Context, req *mcp.CallToolRequest, args map[string]any) (*mcp.CallToolResult, any, error) {
+		// Create a fake HTTP request for auth
+		// In the future, we can extract actual request from context if needed
+		httpReq := &http.Request{
+			Header: http.Header{},
+		}
+		
+		// Authenticate
+		authResult, err := s.authFunc(httpReq)
+		if err != nil {
+			return nil, nil, fmt.Errorf("authentication failed: %v", err)
+		}
 
-	// Find function
-	fn, ok := s.config.Functions[toolName]
-	if !ok {
-		http.Error(w, fmt.Sprintf("Tool not found: %s", toolName), http.StatusNotFound)
-		return
-	}
+		// Check access
+		if !fn.CheckAccess(authResult.AccessGroups) {
+			return nil, nil, fmt.Errorf("access denied")
+		}
 
-	// Use the function handler
-	s.handleFunction(toolName, fn)(w, r)
+		// Validate input
+		if err := fn.ValidateInput(args); err != nil {
+			return nil, nil, fmt.Errorf("invalid input: %v", err)
+		}
+
+		// Call resolver
+		resolverCtx := ont.NewContext(httpReq, s.logger, authResult.AccessGroups, authResult.UserContext)
+		output, err := fn.Resolver(resolverCtx, args)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		// Validate output
+		if err := fn.ValidateOutput(output); err != nil {
+			s.logger.Error("Output validation failed", "function", name, "error", err)
+		}
+
+		// Initialize nil slices
+		output = ont.InitializeNilSlices(output)
+
+		// Return result as text content
+		outputJSON, err := json.Marshal(output)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to marshal output: %v", err)
+		}
+
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: string(outputJSON)},
+			},
+		}, output, nil
+	}
 }
 
 // Serve is a convenience function to create and start a server.
