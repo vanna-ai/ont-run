@@ -16,3 +16,7 @@ examples/ont.lock
 examples/*/basic
 examples/*/*.exe
 *.exe
+
+# Test files from investigation
+test-*.mjs
+test-*.ts

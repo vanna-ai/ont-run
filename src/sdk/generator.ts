@@ -277,6 +277,17 @@ function generateTypeFromSchema(schema: z.ZodType, typeName: string): string | n
 
 /**
  * Convert JSON Schema to TypeScript type string
+ * 
+ * Type mappings from Zod to TypeScript:
+ * - z.string().optional()              → field?: string           (allows: string | undefined)
+ * - z.string().nullable()              → field: string | null      (allows: string | null, required)
+ * - z.string().nullable().optional()   → field?: string | null    (allows: string | null | undefined)
+ * - z.string().nullish()               → field?: string | null    (allows: string | null | undefined)
+ * 
+ * Note: With TypeScript's --strictNullChecks:
+ * - field?: T means the property can be omitted or set to undefined, but NOT null
+ * - field: T | null means the property is required but can be null
+ * - field?: T | null means the property can be omitted, undefined, or null
  */
 function jsonSchemaToTypeScript(schema: any): string {
   if (!schema) return 'unknown';
