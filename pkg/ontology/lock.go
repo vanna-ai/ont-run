@@ -5,51 +5,107 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sort"
 	"time"
 )
 
+// FieldReference represents a field that references another function for its options.
+type FieldReference struct {
+	Path         string `json:"path"`
+	FunctionName string `json:"functionName"`
+}
+
+// FunctionShape represents a snapshot of a function's security-relevant properties.
+type FunctionShape struct {
+	Description              string                 `json:"description"`
+	Access                   []string               `json:"access"`
+	Entities                 []string               `json:"entities"`
+	InputsSchema             map[string]interface{} `json:"inputsSchema"`
+	OutputsSchema            map[string]interface{} `json:"outputsSchema,omitempty"`
+	FieldReferences          []FieldReference       `json:"fieldReferences,omitempty"`
+	UsesUserContext          *bool                  `json:"usesUserContext,omitempty"`
+	UsesOrganizationContext  *bool                  `json:"usesOrganizationContext,omitempty"`
+}
+
+// OntologySnapshot represents a complete snapshot of the ontology.
+type OntologySnapshot struct {
+	Name         string                    `json:"name"`
+	AccessGroups []string                  `json:"accessGroups"`
+	Entities     []string                  `json:"entities,omitempty"`
+	Functions    map[string]FunctionShape  `json:"functions"`
+}
+
 // LockFile represents the ont.lock file structure.
+// This format matches the TypeScript implementation and the official JSON schema.
 type LockFile struct {
-	Version      string            `json:"version"`
-	Name         string            `json:"name"`
-	Hash         string            `json:"hash"`
-	GeneratedAt  time.Time         `json:"generatedAt"`
-	AccessGroups map[string]string `json:"accessGroups"` // name -> hash
-	Entities     map[string]string `json:"entities"`     // name -> hash
-	Functions    map[string]string `json:"functions"`    // name -> hash
+	Version    int              `json:"version"`
+	Hash       string           `json:"hash"`
+	ApprovedAt time.Time        `json:"approvedAt"`
+	Ontology   OntologySnapshot `json:"ontology"`
 }
 
 // LockFileVersion is the current lock file format version.
-const LockFileVersion = "1.0"
+const LockFileVersion = 1
 
-// GenerateLock creates a lock file with cryptographic hashes.
+// GenerateLock creates a lock file with the complete ontology snapshot.
 func (c *Config) GenerateLock() *LockFile {
+	snapshot := c.ExtractSnapshot()
+	
 	lock := &LockFile{
-		Version:      LockFileVersion,
-		Name:         c.Name,
-		Hash:         c.Hash(),
-		GeneratedAt:  time.Now().UTC(),
-		AccessGroups: make(map[string]string),
-		Entities:     make(map[string]string),
-		Functions:    make(map[string]string),
-	}
-
-	// Hash individual access groups
-	for name, group := range c.AccessGroups {
-		lock.AccessGroups[name] = hashComponent(group)
-	}
-
-	// Hash individual entities
-	for name, entity := range c.Entities {
-		lock.Entities[name] = hashComponent(entity)
-	}
-
-	// Hash individual functions
-	for name, fn := range c.Functions {
-		lock.Functions[name] = hashFunction(fn)
+		Version:    LockFileVersion,
+		Hash:       c.Hash(),
+		ApprovedAt: time.Now().UTC(),
+		Ontology:   snapshot,
 	}
 
 	return lock
+}
+
+// ExtractSnapshot creates a complete ontology snapshot.
+// This extracts all security-relevant information for the lock file.
+func (c *Config) ExtractSnapshot() OntologySnapshot {
+	// Collect and sort access groups
+	accessGroups := make([]string, 0, len(c.AccessGroups))
+	for name := range c.AccessGroups {
+		accessGroups = append(accessGroups, name)
+	}
+	sort.Strings(accessGroups)
+
+	// Collect and sort entities
+	entities := make([]string, 0, len(c.Entities))
+	for name := range c.Entities {
+		entities = append(entities, name)
+	}
+	sort.Strings(entities)
+
+	// Extract function shapes
+	functions := make(map[string]FunctionShape)
+	for name, fn := range c.Functions {
+		// Sort access and entities for consistent hashing
+		access := sortedCopy(fn.Access)
+		fnEntities := sortedCopy(fn.Entities)
+
+		shape := FunctionShape{
+			Description:   fn.Description,
+			Access:        access,
+			Entities:      fnEntities,
+			InputsSchema:  fn.Inputs.JSONSchema(),
+		}
+
+		// Add outputs schema if present
+		if fn.Outputs != nil {
+			shape.OutputsSchema = fn.Outputs.JSONSchema()
+		}
+
+		functions[name] = shape
+	}
+
+	return OntologySnapshot{
+		Name:         c.Name,
+		AccessGroups: accessGroups,
+		Entities:     entities,
+		Functions:    functions,
+	}
 }
 
 // WriteLock writes the lock file to disk.
@@ -150,52 +206,66 @@ func (c *Config) DiffLock(path string) (*LockDiff, error) {
 		diff.HashChanged = true
 	}
 
+	// Build sets for comparison
+	lockAccessGroupSet := make(map[string]bool)
+	for _, name := range lock.Ontology.AccessGroups {
+		lockAccessGroupSet[name] = true
+	}
+
+	lockEntitySet := make(map[string]bool)
+	for _, name := range lock.Ontology.Entities {
+		lockEntitySet[name] = true
+	}
+
 	// Compare access groups
-	for name, group := range c.AccessGroups {
-		currentHash := hashComponent(group)
-		if lockHash, exists := lock.AccessGroups[name]; !exists {
+	for name := range c.AccessGroups {
+		if !lockAccessGroupSet[name] {
 			diff.NewAccessGroups = append(diff.NewAccessGroups, name)
-		} else if currentHash != lockHash {
-			diff.ModifiedAccessGroups = append(diff.ModifiedAccessGroups, name)
 		}
 	}
-	for name := range lock.AccessGroups {
+	for _, name := range lock.Ontology.AccessGroups {
 		if _, exists := c.AccessGroups[name]; !exists {
 			diff.DeletedAccessGroups = append(diff.DeletedAccessGroups, name)
 		}
 	}
 
 	// Compare entities
-	for name, entity := range c.Entities {
-		currentHash := hashComponent(entity)
-		if lockHash, exists := lock.Entities[name]; !exists {
+	for name := range c.Entities {
+		if !lockEntitySet[name] {
 			diff.NewEntities = append(diff.NewEntities, name)
-		} else if currentHash != lockHash {
-			diff.ModifiedEntities = append(diff.ModifiedEntities, name)
 		}
 	}
-	for name := range lock.Entities {
+	for _, name := range lock.Ontology.Entities {
 		if _, exists := c.Entities[name]; !exists {
 			diff.DeletedEntities = append(diff.DeletedEntities, name)
 		}
 	}
 
-	// Compare functions
-	for name, fn := range c.Functions {
-		currentHash := hashFunction(fn)
-		if lockHash, exists := lock.Functions[name]; !exists {
+	// Compare functions by comparing their shapes
+	currentSnapshot := c.ExtractSnapshot()
+	for name, currentShape := range currentSnapshot.Functions {
+		lockShape, exists := lock.Ontology.Functions[name]
+		if !exists {
 			diff.NewFunctions = append(diff.NewFunctions, name)
-		} else if currentHash != lockHash {
+		} else if !functionsEqual(currentShape, lockShape) {
 			diff.ModifiedFunctions = append(diff.ModifiedFunctions, name)
 		}
 	}
-	for name := range lock.Functions {
+	for name := range lock.Ontology.Functions {
 		if _, exists := c.Functions[name]; !exists {
 			diff.DeletedFunctions = append(diff.DeletedFunctions, name)
 		}
 	}
 
 	return diff, nil
+}
+
+// functionsEqual compares two function shapes for equality.
+func functionsEqual(a, b FunctionShape) bool {
+	// Quick check: serialize and compare JSON
+	aJSON, _ := json.Marshal(a)
+	bJSON, _ := json.Marshal(b)
+	return string(aJSON) == string(bJSON)
 }
 
 // String returns a human-readable summary of the changes.

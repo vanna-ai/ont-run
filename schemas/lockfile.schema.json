@@ -1,0 +1,124 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ont-run.com/schemas/lockfile.schema.json",
+  "title": "Ont-Run Lock File Schema",
+  "description": "JSON Schema for the ont.lock file format used to track and approve ontology changes across all language implementations",
+  "type": "object",
+  "required": ["version", "hash", "approvedAt", "ontology"],
+  "properties": {
+    "version": {
+      "type": "number",
+      "const": 1,
+      "description": "The lock file format version. Currently only version 1 is supported."
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{16}$",
+      "description": "SHA256 hash (first 16 characters) of the ontology snapshot. Used for quick comparison."
+    },
+    "approvedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when the ontology was approved (e.g., '2024-01-01T00:00:00.000Z')"
+    },
+    "ontology": {
+      "type": "object",
+      "required": ["name", "accessGroups", "functions"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the ontology"
+        },
+        "accessGroups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Sorted array of access group names"
+        },
+        "entities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Sorted array of entity names (optional field)"
+        },
+        "functions": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/functionShape"
+          },
+          "description": "Map of function names to their shapes"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Complete snapshot of the ontology including all security-relevant information"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "functionShape": {
+      "type": "object",
+      "required": ["description", "access", "entities", "inputsSchema"],
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of what the function does"
+        },
+        "access": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Sorted array of access group names that can call this function"
+        },
+        "entities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Sorted array of entity names this function operates on"
+        },
+        "inputsSchema": {
+          "type": "object",
+          "description": "JSON Schema representation of the function's input parameters"
+        },
+        "outputsSchema": {
+          "type": "object",
+          "description": "JSON Schema representation of the function's output (optional)"
+        },
+        "fieldReferences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fieldReference"
+          },
+          "description": "Fields that reference other functions for their options (optional)"
+        },
+        "usesUserContext": {
+          "type": "boolean",
+          "description": "Whether this function uses userContext() for row-level access control (optional)"
+        },
+        "usesOrganizationContext": {
+          "type": "boolean",
+          "description": "Whether this function uses organizationContext() for multi-tenant access control (optional)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "fieldReference": {
+      "type": "object",
+      "required": ["path", "functionName"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to the field in the schema (e.g., 'status' or 'filters.country')"
+        },
+        "functionName": {
+          "type": "string",
+          "description": "Name of the function that provides options for this field"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

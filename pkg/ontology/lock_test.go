@@ -32,27 +32,27 @@ func TestLockFileGeneration(t *testing.T) {
 	lock := config.GenerateLock()
 
 	if lock.Version != LockFileVersion {
-		t.Errorf("Expected version %s, got %s", LockFileVersion, lock.Version)
+		t.Errorf("Expected version %d, got %d", LockFileVersion, lock.Version)
 	}
 
-	if lock.Name != "test" {
-		t.Errorf("Expected name 'test', got %s", lock.Name)
+	if lock.Ontology.Name != "test" {
+		t.Errorf("Expected name 'test', got %s", lock.Ontology.Name)
 	}
 
 	if lock.Hash == "" {
 		t.Error("Expected non-empty hash")
 	}
 
-	if len(lock.AccessGroups) != 1 {
-		t.Errorf("Expected 1 access group, got %d", len(lock.AccessGroups))
+	if len(lock.Ontology.AccessGroups) != 1 {
+		t.Errorf("Expected 1 access group, got %d", len(lock.Ontology.AccessGroups))
 	}
 
-	if len(lock.Entities) != 1 {
-		t.Errorf("Expected 1 entity, got %d", len(lock.Entities))
+	if len(lock.Ontology.Entities) != 1 {
+		t.Errorf("Expected 1 entity, got %d", len(lock.Ontology.Entities))
 	}
 
-	if len(lock.Functions) != 1 {
-		t.Errorf("Expected 1 function, got %d", len(lock.Functions))
+	if len(lock.Ontology.Functions) != 1 {
+		t.Errorf("Expected 1 function, got %d", len(lock.Ontology.Functions))
 	}
 }
 
@@ -273,12 +273,12 @@ func TestReadLock(t *testing.T) {
 		t.Fatalf("Failed to read lock: %v", err)
 	}
 
-	if lock.Name != "test" {
-		t.Errorf("Expected name 'test', got %s", lock.Name)
+	if lock.Ontology.Name != "test" {
+		t.Errorf("Expected name 'test', got %s", lock.Ontology.Name)
 	}
 
 	if lock.Version != LockFileVersion {
-		t.Errorf("Expected version %s, got %s", LockFileVersion, lock.Version)
+		t.Errorf("Expected version %d, got %d", LockFileVersion, lock.Version)
 	}
 }
 
