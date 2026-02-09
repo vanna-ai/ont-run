@@ -10,11 +10,12 @@ import (
 // Hash generates a cryptographic hash of the entire ontology configuration.
 // The hash is deterministic: configs with the same content produce the same hash,
 // regardless of map iteration order.
+// Returns the first 16 characters of the SHA256 hash (matching the TypeScript implementation).
 func (c *Config) Hash() string {
 	normalized := c.normalize()
 	data, _ := json.Marshal(normalized)
 	hash := sha256.Sum256(data)
-	return hex.EncodeToString(hash[:])
+	return hex.EncodeToString(hash[:])[:16]
 }
 
 // normalizedConfig is a serializable representation of Config for hashing.
