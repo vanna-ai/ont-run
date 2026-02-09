@@ -408,17 +408,27 @@ export default async function editPost(
 
 ## The Lockfile
 
-`ont.lock` is the enforcement mechanism. It contains a hash of your ontology:
+`ont.lock` is the enforcement mechanism. It contains a cryptographic hash and complete snapshot of your ontology.
 
-**What gets hashed (requires review):**
+**What gets tracked (requires review):**
 - Function names and descriptions
 - Access group assignments
-- Input schemas
+- Input and output schemas
+- Entity relationships
+- Field references and context usage
 
-**What doesn't get hashed (AI can change freely):**
+**What doesn't get tracked (AI can change freely):**
 - Resolver implementations
 - Environment configurations
 - Auth function implementation
+
+The lock file format is standardized across all language implementations (TypeScript, Go, future Python) using a JSON schema. See [Lock File Format Documentation](docs/LOCK_FILE_FORMAT.md) for details.
+
+**Validation:**
+```bash
+# Validate a lock file against the schema
+ajv validate -s schemas/lockfile.schema.json -d ont.lock --strict=false
+```
 
 ## CLI Commands
 
