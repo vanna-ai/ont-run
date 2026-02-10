@@ -1,19 +1,17 @@
-# Go Backend (Development Branch)
+# Go Backend
 
-This document covers testing the Go backend packages from the `claude/migrate-typescript-to-go-ctdVL` branch.
+This document covers using the Go backend packages from ont-run.
 
-## Installing from Branch
+## Installation
 
 ```bash
-go get github.com/vanna-ai/ont-run@claude/migrate-typescript-to-go-ctdVL
+go get github.com/vanna-ai/ont-run
 ```
 
 Or in your `go.mod`:
 
 ```go
 require github.com/vanna-ai/ont-run v0.0.0
-
-replace github.com/vanna-ai/ont-run => github.com/vanna-ai/ont-run@claude/migrate-typescript-to-go-ctdVL
 ```
 
 For local development, use a local replace:
@@ -327,7 +325,7 @@ cd /path/to/ont-run
 go test ./pkg/...
 ```
 
-## Known Limitations (Development Branch)
+## Known Limitations
 
 - Cloud registration API format may change
 - No Windows testing yet
