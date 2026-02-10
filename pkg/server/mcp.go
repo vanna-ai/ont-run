@@ -229,8 +229,10 @@ func (s *Server) createMCPHandler() http.Handler {
 
 		// Create tool with JSON Schema
 		tool := &mcp.Tool{
-			Name:        toolName,
-			Description: funcDef.Description,
+			Name:         toolName,
+			Description:  funcDef.Description,
+			InputSchema:  funcDef.Inputs.JSONSchema(),
+			OutputSchema: funcDef.Outputs.JSONSchema(),
 		}
 
 		// Add the tool with a handler
