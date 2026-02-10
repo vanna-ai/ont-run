@@ -208,6 +208,12 @@ func (s *Server) handleFunction(name string, fn ont.Function) http.HandlerFunc {
 	}
 }
 
+// contextKey is a type for context keys in this package.
+type contextKey string
+
+// httpRequestKey is used to store the real *http.Request in the context.
+const httpRequestKey contextKey = "httpRequest"
+
 // createMCPHandler creates an MCP handler using the official SDK.
 func (s *Server) createMCPHandler() http.Handler {
 	// Create MCP server
@@ -236,16 +242,20 @@ func (s *Server) createMCPHandler() http.Handler {
 		return mcpServer
 	}, nil)
 
-	return handler
+	// Wrap to inject the real HTTP request into context so tool handlers can access it
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), httpRequestKey, r)
+		handler.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
 
 // createMCPToolHandler creates an MCP tool handler for a given function.
 func (s *Server) createMCPToolHandler(name string, fn ont.Function) func(context.Context, *mcp.CallToolRequest, map[string]any) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, req *mcp.CallToolRequest, args map[string]any) (*mcp.CallToolResult, any, error) {
-		// Create a fake HTTP request for auth
-		// In the future, we can extract actual request from context if needed
-		httpReq := &http.Request{
-			Header: http.Header{},
+		// Extract real HTTP request from context (injected by createMCPHandler wrapper)
+		httpReq, _ := ctx.Value(httpRequestKey).(*http.Request)
+		if httpReq == nil {
+			httpReq = &http.Request{Header: http.Header{}}
 		}
 
 		// Authenticate
