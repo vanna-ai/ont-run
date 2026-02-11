@@ -217,10 +217,23 @@ const httpRequestKey contextKey = "httpRequest"
 // createMCPHandler creates an MCP handler using the official SDK.
 func (s *Server) createMCPHandler() http.Handler {
 	// Create MCP server
+	version := s.config.Version
+	if version == "" {
+		version = "1.0.0"
+	}
+
+	var opts *mcp.ServerOptions
+	if s.config.Instructions != "" {
+		opts = &mcp.ServerOptions{
+			Instructions: s.config.Instructions,
+		}
+	}
+
 	mcpServer := mcp.NewServer(&mcp.Implementation{
 		Name:    s.config.Name,
-		Version: "1.0.0",
-	}, nil)
+		Title:   s.config.Title,
+		Version: version,
+	}, opts)
 
 	// Add tools for each function
 	for name, fn := range s.config.Functions {

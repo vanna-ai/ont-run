@@ -10,8 +10,11 @@ import (
 // Config represents the complete ontology configuration.
 type Config struct {
 	Name         string                 `json:"name" validate:"required"`
-	UUID         string                 `json:"uuid,omitempty"`  // Unique identifier for cloud registration
-	Cloud        bool                   `json:"cloud,omitempty"` // Enable cloud registration
+	Title        string                 `json:"title,omitempty"`        // Human-readable display name for the server
+	Version      string                 `json:"version,omitempty"`      // Server version (defaults to "1.0.0")
+	Instructions string                 `json:"instructions,omitempty"` // Usage instructions for LLM clients
+	UUID         string                 `json:"uuid,omitempty"`         // Unique identifier for cloud registration
+	Cloud        bool                   `json:"cloud,omitempty"`        // Enable cloud registration
 	AccessGroups map[string]AccessGroup `json:"accessGroups" validate:"required"`
 	Entities     map[string]Entity      `json:"entities" validate:"required"`
 	Functions    map[string]Function    `json:"functions" validate:"required"`
