@@ -5,7 +5,7 @@ import type { z } from "zod";
  */
 export interface UiConfig {
   /** Type of visualization to render */
-  type?: "table" | "chart" | "auto";
+  type?: "table" | "chart" | "markdown" | "auto";
   /** Chart type when type is "chart" */
   chartType?: "line" | "bar";
   /** Field to use for x-axis in charts */
