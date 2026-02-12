@@ -23,6 +23,8 @@ interface AppConfig {
   outputFile: string;
   varName: string;
   description: string;
+  /** Optional additional output path for the raw HTML (e.g., for Go embed) */
+  rawHtmlOutputFile?: string;
 }
 
 const apps: AppConfig[] = [
@@ -31,6 +33,7 @@ const apps: AppConfig[] = [
     outputFile: "src/server/mcp/apps/visualizer.ts",
     varName: "visualizerHtml",
     description: "Bundled HTML for the data visualizer MCP App.",
+    rawHtmlOutputFile: "pkg/server/apps/visualizer.html",
   },
   {
     name: "browser-app",
@@ -91,6 +94,17 @@ export const ${app.varName} = ${JSON.stringify(html)};
       // Write to output file
       const outputPath = resolve(rootDir, app.outputFile);
       writeFileSync(outputPath, tsContent);
+
+      // Also write raw HTML for Go embed if configured
+      if (app.rawHtmlOutputFile) {
+        const rawOutputPath = resolve(rootDir, app.rawHtmlOutputFile);
+        const rawOutputDir = dirname(rawOutputPath);
+        if (!existsSync(rawOutputDir)) {
+          mkdirSync(rawOutputDir, { recursive: true });
+        }
+        writeFileSync(rawOutputPath, html);
+        console.log(`  → Also wrote raw HTML to ${app.rawHtmlOutputFile}`);
+      }
 
       console.log(`✓ Successfully bundled ${app.name} to ${app.outputFile}\n`);
     } catch (error) {

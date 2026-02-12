@@ -30,6 +30,20 @@ type Entity struct {
 	Description string `json:"description" validate:"required"`
 }
 
+// UiConfig configures visualization for MCP Apps.
+type UiConfig struct {
+	// Type of visualization: "table", "chart", "markdown", or "auto".
+	Type string `json:"type,omitempty"`
+	// Chart type when Type is "chart": "line" or "bar".
+	ChartType string `json:"chartType,omitempty"`
+	// Field to use for X-axis in charts.
+	XAxis string `json:"xAxis,omitempty"`
+	// Field(s) for left Y-axis.
+	LeftYAxis []string `json:"leftYAxis,omitempty"`
+	// Field(s) for right Y-axis.
+	RightYAxis []string `json:"rightYAxis,omitempty"`
+}
+
 // Function represents an API function in the ontology.
 type Function struct {
 	Description string       `json:"description" validate:"required"`
@@ -38,6 +52,8 @@ type Function struct {
 	Inputs      Schema       `json:"inputs" validate:"required"`
 	Outputs     Schema       `json:"outputs" validate:"required"`
 	Resolver    ResolverFunc `json:"-"` // Excluded from serialization
+	// UI enables MCP App visualization. Set to non-nil to enable.
+	UI *UiConfig `json:"ui,omitempty"`
 }
 
 // ResolverFunc is the function signature for resolving API calls.

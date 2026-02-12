@@ -8,19 +8,19 @@ import type { McpUiHostContext } from "@modelcontextprotocol/ext-apps";
 import { useApp, useHostStyles } from "@modelcontextprotocol/ext-apps/react";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createRoot } from "react-dom/client";
-import { BarChart3, Table2, Download, Settings } from "lucide-react";
+import { BarChart3, Table2, Download, Settings, FileText } from "lucide-react";
 import { DataTable } from "./components/DataTable";
 import { DataChart } from "./components/DataChart";
+import { MarkdownView } from "./components/MarkdownView";
 import { SettingsSidebar } from "./components/SettingsSidebar";
 import { downloadCSV } from "./utils/csv";
 import "./styles.css";
 
-type ViewType = "chart" | "table";
+type ViewType = "chart" | "table" | "markdown";
 type ChartType = "bar" | "line";
 
 interface UiConfig {
-  type?: "table" | "chart" | "auto";
-  chartType?: "line" | "bar";
+  type?: "table" | "chart" | "markdown" | "auto";
   xAxis?: string;
   leftYAxis?: string | string[];
   rightYAxis?: string | string[];
@@ -35,13 +35,20 @@ const APP_INFO = { name: "ont-visualizer", version: "1.0.0" };
 function detectVisualizationType(
   data: unknown,
   config?: UiConfig | null
-): "table" | "chart" {
+): "table" | "chart" | "markdown" {
   // If config explicitly specifies a type (not "auto"), use it
   if (config?.type && config.type !== "auto") {
-    return config.type === "chart" ? "chart" : "table";
+    if (config.type === "markdown") return "markdown";
+    if (config.type === "chart") return "chart";
+    return "table";
   }
 
   if (!data) return "table";
+
+  // String data: could be CSV (→ table) or markdown
+  if (typeof data === "string") {
+    return "table";
+  }
 
   if (Array.isArray(data)) {
     if (data.length === 0) return "table";
@@ -321,6 +328,13 @@ function VisualizerApp() {
           >
             <Table2 size={18} />
           </button>
+          <button
+            className={`icon-btn${view === "markdown" ? " active" : ""}`}
+            onClick={() => setView("markdown")}
+            title="Markdown view"
+          >
+            <FileText size={18} />
+          </button>
         </div>
         <div className="header-right">
           <button
@@ -346,6 +360,11 @@ function VisualizerApp() {
       <div className="app-body">
         <div className="main-content">
           {view === "table" && <DataTable data={data} />}
+          {view === "markdown" && (
+            <MarkdownView
+              content={typeof data === "string" ? data : JSON.stringify(data, null, 2)}
+            />
+          )}
           {view === "chart" && (
             <DataChart
               data={data}

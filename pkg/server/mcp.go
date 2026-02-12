@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"reflect"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/vanna-ai/ont-run/pkg/cloud"
@@ -17,10 +18,11 @@ import (
 
 // Server is the main server that handles both REST API and MCP protocol.
 type Server struct {
-	config   *ont.Config
-	logger   ont.Logger
-	authFunc AuthFunc
-	staticFS http.FileSystem
+	config        *ont.Config
+	logger        ont.Logger
+	authFunc      AuthFunc
+	staticFS      http.FileSystem
+	visualizerHTML string
 }
 
 // AuthFunc is a function that authenticates a request and returns access groups.
@@ -54,6 +56,14 @@ func WithAuth(authFunc AuthFunc) ServerOption {
 func WithStaticFS(fs http.FileSystem) ServerOption {
 	return func(s *Server) {
 		s.staticFS = fs
+	}
+}
+
+// WithVisualizerHTML sets the HTML content for the MCP App visualizer.
+// This is served via MCP resources for tools that have UI enabled.
+func WithVisualizerHTML(html string) ServerOption {
+	return func(s *Server) {
+		s.visualizerHTML = html
 	}
 }
 
@@ -235,6 +245,9 @@ func (s *Server) createMCPHandler() http.Handler {
 		Version: version,
 	}, opts)
 
+	// Track whether any tools have UI enabled
+	hasUITools := false
+
 	// Add tools for each function
 	for name, fn := range s.config.Functions {
 		toolName := name
@@ -248,8 +261,60 @@ func (s *Server) createMCPHandler() http.Handler {
 			OutputSchema: funcDef.Outputs.JSONSchema(),
 		}
 
+		// Add UI metadata if enabled
+		if funcDef.UI != nil {
+			hasUITools = true
+			resourceURI := "ui://ont-visualizer/" + toolName
+			tool.Meta = mcp.Meta{
+				"ui/resourceUri": resourceURI,
+				"ui": map[string]any{
+					"resourceUri": resourceURI,
+				},
+			}
+		}
+
 		// Add the tool with a handler
 		mcp.AddTool(mcpServer, tool, s.createMCPToolHandler(toolName, funcDef))
+	}
+
+	// Register MCP resources for UI-enabled tools
+	if hasUITools && s.visualizerHTML != "" {
+		visualizerHTML := s.visualizerHTML
+
+		// Resource handler that serves the visualizer HTML
+		resourceHandler := func(_ context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+			uri := req.Params.URI
+			if !strings.HasPrefix(uri, "ui://ont-visualizer/") {
+				return nil, mcp.ResourceNotFoundError(uri)
+			}
+			return &mcp.ReadResourceResult{
+				Contents: []*mcp.ResourceContents{{
+					URI:      uri,
+					MIMEType: "text/html;profile=mcp-app",
+					Text:     visualizerHTML,
+				}},
+			}, nil
+		}
+
+		// Add resource template for dynamic tool names
+		mcpServer.AddResourceTemplate(&mcp.ResourceTemplate{
+			URITemplate: "ui://ont-visualizer/{name}",
+			Name:        "Data Visualizer",
+			Description: "Interactive visualization for ontology function results",
+			MIMEType:    "text/html;profile=mcp-app",
+		}, resourceHandler)
+
+		// Add individual resources for each UI-enabled tool
+		for name, fn := range s.config.Functions {
+			if fn.UI != nil {
+				mcpServer.AddResource(&mcp.Resource{
+					URI:         "ui://ont-visualizer/" + name,
+					Name:        name + " Visualizer",
+					Description: "Interactive visualization for " + name,
+					MIMEType:    "text/html;profile=mcp-app",
+				}, resourceHandler)
+			}
+		}
 	}
 
 	// Create HTTP handler using StreamableHTTP transport
@@ -310,11 +375,51 @@ func (s *Server) createMCPToolHandler(name string, fn ont.Function) func(context
 			return nil, nil, fmt.Errorf("failed to marshal output: %v", err)
 		}
 
+		// Build structured content for UI-enabled tools
+		var structuredOutput any = output
+		if fn.UI != nil {
+			structured := make(map[string]any)
+
+			// If the result is a slice, wrap it in {data: ...}
+			if isSlice(output) {
+				structured["data"] = output
+			} else if m, ok := output.(map[string]any); ok {
+				for k, v := range m {
+					structured[k] = v
+				}
+			} else {
+				structured["data"] = output
+			}
+
+			// Include UI config for the visualizer app
+			if fn.UI.Type != "" || fn.UI.ChartType != "" || fn.UI.XAxis != "" || len(fn.UI.LeftYAxis) > 0 || len(fn.UI.RightYAxis) > 0 {
+				uiConfig := map[string]any{}
+				if fn.UI.Type != "" {
+					uiConfig["type"] = fn.UI.Type
+				}
+				if fn.UI.ChartType != "" {
+					uiConfig["chartType"] = fn.UI.ChartType
+				}
+				if fn.UI.XAxis != "" {
+					uiConfig["xAxis"] = fn.UI.XAxis
+				}
+				if len(fn.UI.LeftYAxis) > 0 {
+					uiConfig["leftYAxis"] = fn.UI.LeftYAxis
+				}
+				if len(fn.UI.RightYAxis) > 0 {
+					uiConfig["rightYAxis"] = fn.UI.RightYAxis
+				}
+				structured["_uiConfig"] = uiConfig
+			}
+
+			structuredOutput = structured
+		}
+
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
 				&mcp.TextContent{Text: string(outputJSON)},
 			},
-		}, output, nil
+		}, structuredOutput, nil
 	}
 }
 
@@ -322,6 +427,14 @@ func (s *Server) createMCPToolHandler(name string, fn ont.Function) func(context
 func Serve(config *ont.Config, addr string, opts ...ServerOption) error {
 	server := New(config, opts...)
 	return server.Serve(addr)
+}
+
+// isSlice checks if a value is a slice type.
+func isSlice(v any) bool {
+	if v == nil {
+		return false
+	}
+	return reflect.TypeOf(v).Kind() == reflect.Slice
 }
 
 // initializeNilSlicesInMap recursively initializes nil slices in a map.

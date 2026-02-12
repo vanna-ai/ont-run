@@ -34,6 +34,7 @@ func main() {
 	opts := []server.ServerOption{
 		server.WithLogger(ont.ConsoleLogger()),
 		server.WithAuth(authFunc),
+		server.WithVisualizerHTML(server.DefaultVisualizerHTML()),
 	}
 
 	// Check if we have embedded static files (production build)

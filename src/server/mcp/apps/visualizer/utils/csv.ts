@@ -1,6 +1,82 @@
 /**
- * CSV Export Utility
+ * CSV Import/Export Utility
  */
+
+/**
+ * Parse a CSV string into an array of objects.
+ * The first row is treated as headers.
+ */
+export function parseCSV(csv: string): Record<string, string>[] {
+  const lines = parseCSVLines(csv);
+  if (lines.length < 2) return [];
+
+  const headers = lines[0];
+  return lines.slice(1).map((fields) => {
+    const row: Record<string, string> = {};
+    headers.forEach((header, i) => {
+      row[header] = i < fields.length ? fields[i] : "";
+    });
+    return row;
+  });
+}
+
+/**
+ * Parse CSV text into a 2D array of fields, handling quoted values.
+ */
+function parseCSVLines(text: string): string[][] {
+  const results: string[][] = [];
+  let current: string[] = [];
+  let field = "";
+  let inQuotes = false;
+  let i = 0;
+
+  while (i < text.length) {
+    const ch = text[i];
+
+    if (inQuotes) {
+      if (ch === '"') {
+        if (i + 1 < text.length && text[i + 1] === '"') {
+          field += '"';
+          i += 2;
+        } else {
+          inQuotes = false;
+          i++;
+        }
+      } else {
+        field += ch;
+        i++;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+        i++;
+      } else if (ch === ",") {
+        current.push(field);
+        field = "";
+        i++;
+      } else if (ch === "\n" || (ch === "\r" && i + 1 < text.length && text[i + 1] === "\n")) {
+        current.push(field);
+        field = "";
+        if (current.some((f) => f !== "")) {
+          results.push(current);
+        }
+        current = [];
+        i += ch === "\r" ? 2 : 1;
+      } else {
+        field += ch;
+        i++;
+      }
+    }
+  }
+
+  // Last field/line
+  current.push(field);
+  if (current.some((f) => f !== "")) {
+    results.push(current);
+  }
+
+  return results;
+}
 
 /**
  * Escape a CSV value - handles commas, quotes, and newlines
