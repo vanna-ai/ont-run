@@ -30,6 +30,30 @@ interface UiConfig {
 const APP_INFO = { name: "ont-visualizer", version: "1.0.0" };
 
 /**
+ * Extract a string value from data that may be wrapped in an object.
+ * Handles cases like {result: "# markdown..."} or {csv: "name,email\n..."}
+ * by unwrapping the string from single-field objects or known field names.
+ */
+function extractStringContent(data: unknown): string | null {
+  if (typeof data === "string") return data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+
+  const record = data as Record<string, unknown>;
+  const entries = Object.entries(record);
+
+  // Single string field → use it directly
+  const stringEntries = entries.filter(([, v]) => typeof v === "string");
+  if (stringEntries.length === 1) return stringEntries[0][1] as string;
+
+  // Multiple fields: try well-known field names
+  for (const key of ["content", "text", "markdown", "result", "report", "csv", "data", "body", "output"]) {
+    if (typeof record[key] === "string") return record[key] as string;
+  }
+
+  return null;
+}
+
+/**
  * Detect the best visualization type based on data structure.
  */
 function detectVisualizationType(
@@ -45,8 +69,8 @@ function detectVisualizationType(
 
   if (!data) return "table";
 
-  // String data: could be CSV (→ table) or markdown
-  if (typeof data === "string") {
+  // String data or object wrapping a string → table (for CSV) by default
+  if (typeof data === "string" || extractStringContent(data) !== null) {
     return "table";
   }
 
@@ -359,10 +383,10 @@ function VisualizerApp() {
       {/* Main Content */}
       <div className="app-body">
         <div className="main-content">
-          {view === "table" && <DataTable data={data} />}
+          {view === "table" && <DataTable data={extractStringContent(data) ?? data} />}
           {view === "markdown" && (
             <MarkdownView
-              content={typeof data === "string" ? data : JSON.stringify(data, null, 2)}
+              content={extractStringContent(data) ?? JSON.stringify(data, null, 2)}
             />
           )}
           {view === "chart" && (
