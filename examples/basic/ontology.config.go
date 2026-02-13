@@ -30,10 +30,12 @@ func DefineOntology() *ont.Config {
 
 		Functions: map[string]ont.Function{
 			"healthCheck": {
-				Description: "Check if the server is running",
-				Access:      []string{"public"},
-				Entities:    []string{},
-				Inputs:      ont.Object(map[string]ont.Schema{}),
+				Description:           "Check if the server is running",
+				Access:                []string{"public"},
+				Entities:              []string{},
+				IsReadOnly:            true,
+				IncludeInMcpListTools: true,
+				Inputs:                ont.Object(map[string]ont.Schema{}),
 				Outputs: ont.Object(map[string]ont.Schema{
 					"status":    ont.String(),
 					"timestamp": ont.String().DateTime(),
@@ -41,9 +43,11 @@ func DefineOntology() *ont.Config {
 				Resolver: resolvers.HealthCheck,
 			},
 			"getUser": {
-				Description: "Get user by ID",
-				Access:      []string{"admin"},
-				Entities:    []string{"User"},
+				Description:           "Get user by ID",
+				Access:                []string{"admin"},
+				Entities:              []string{"User"},
+				IsReadOnly:            true,
+				IncludeInMcpListTools: true,
 				Inputs: ont.Object(map[string]ont.Schema{
 					"id": ont.String().UUID(),
 				}),
@@ -56,9 +60,11 @@ func DefineOntology() *ont.Config {
 				Resolver: resolvers.GetUser,
 			},
 			"listUsers": {
-				Description: "List all users with pagination",
-				Access:      []string{"admin"},
-				Entities:    []string{"User"},
+				Description:           "List all users with pagination",
+				Access:                []string{"admin"},
+				Entities:              []string{"User"},
+				IsReadOnly:            true,
+				IncludeInMcpListTools: true,
 				Inputs: ont.Object(map[string]ont.Schema{
 					"page":     ont.Integer().Min(1),
 					"pageSize": ont.Integer().Min(1).Max(100),

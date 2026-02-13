@@ -210,6 +210,11 @@ export function generateMcpTools(config: OntologyConfig): McpTool[] {
   const tools: McpTool[] = [];
 
   for (const [name, fn] of Object.entries(config.functions)) {
+    // Skip functions that should not be included in MCP listTools
+    if (!fn.includeInMcpListTools) {
+      continue;
+    }
+
     // Convert Zod schema to JSON Schema for MCP
     let inputSchema: Record<string, unknown>;
     try {
