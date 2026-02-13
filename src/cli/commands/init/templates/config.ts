@@ -66,6 +66,7 @@ export default defineOntology({
       access: ['public', 'support', 'admin'],
       entities: [],
       isReadOnly: true,
+      includeInMcpListTools: true,
       inputs: z.object({}),
       outputs: z.object({
         status: z.string(),
@@ -81,6 +82,7 @@ export default defineOntology({
       access: ['support', 'admin'],
       entities: ['User'],
       isReadOnly: true,
+      includeInMcpListTools: true,
       inputs: z.object({
         userId: z.string().uuid(),
         // currentUser is injected from auth - not visible to API callers
@@ -104,6 +106,7 @@ export default defineOntology({
       access: ['admin'],
       entities: ['User'],
       isReadOnly: false,
+      includeInMcpListTools: true,
       inputs: z.object({
         userId: z.string().uuid(),
         reason: z.string().optional(),
@@ -123,6 +126,7 @@ export default defineOntology({
       access: ['public', 'support', 'admin'],
       entities: [],
       isReadOnly: true,
+      includeInMcpListTools: true,
       inputs: z.object({
         region: z.string().optional(),
       }),

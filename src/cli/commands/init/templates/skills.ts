@@ -91,6 +91,8 @@ export default defineOntology({
       description: 'Check API health status',
       access: ['public', 'user', 'admin'],
       entities: [],
+      isReadOnly: true,
+      includeInMcpListTools: true,
       inputs: z.object({}),
       resolver: healthCheck,
     },
@@ -102,6 +104,8 @@ export default defineOntology({
       description: 'Get user by ID',
       access: ['user', 'admin'],
       entities: ['User'],
+      isReadOnly: true,
+      includeInMcpListTools: true,
       inputs: z.object({
         userId: z.string().uuid(),
       }),
@@ -122,6 +126,8 @@ export default defineOntology({
       description: 'Edit a post (users can only edit their own posts)',
       access: ['user', 'admin'],
       entities: ['Post'],
+      isReadOnly: false,
+      includeInMcpListTools: true,
       inputs: z.object({
         postId: z.string(),
         title: z.string(),
@@ -146,6 +152,8 @@ export default defineOntology({
       description: 'Create a project in the organization',
       access: ['member'],
       entities: ['Project'],
+      isReadOnly: false,
+      includeInMcpListTools: true,
       inputs: z.object({
         name: z.string(),
         description: z.string().optional(),
@@ -169,6 +177,8 @@ export default defineOntology({
       description: 'Get available user statuses',
       access: ['admin'],
       entities: [],
+      isReadOnly: true,
+      includeInMcpListTools: false,  // Hidden helper function for fieldFrom()
       inputs: z.object({}),
       outputs: z.array(z.object({
         value: z.string(),
@@ -185,6 +195,8 @@ export default defineOntology({
       description: 'Search teams by name',
       access: ['admin'],
       entities: ['Team'],
+      isReadOnly: true,
+      includeInMcpListTools: false,  // Hidden helper function for fieldFrom()
       inputs: z.object({
         query: z.string(),
       }),
@@ -202,6 +214,8 @@ export default defineOntology({
       description: 'Create a new user',
       access: ['admin'],
       entities: ['User'],
+      isReadOnly: false,
+      includeInMcpListTools: true,
       inputs: z.object({
         name: z.string(),
         email: z.string().email(),

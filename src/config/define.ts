@@ -134,6 +134,8 @@ export function defineFunction<
   ui?: boolean | UiConfig;
   /** Whether this function is read-only (query) or has side effects (mutation) */
   isReadOnly: boolean;
+  /** Whether this function should be included in MCP listTools responses */
+  includeInMcpListTools: boolean;
 }): FunctionDefinition<TGroups, TEntities, TInputs, TOutputs> {
   return {
     ...config,

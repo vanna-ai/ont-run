@@ -250,6 +250,11 @@ func (s *Server) createMCPHandler() http.Handler {
 
 	// Add tools for each function
 	for name, fn := range s.config.Functions {
+		// Skip functions that should not be included in MCP listTools
+		if !fn.IncludeInMcpListTools {
+			continue
+		}
+
 		toolName := name
 		funcDef := fn
 

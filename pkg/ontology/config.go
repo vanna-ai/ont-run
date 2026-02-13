@@ -54,6 +54,10 @@ type Function struct {
 	Resolver    ResolverFunc `json:"-"` // Excluded from serialization
 	// UI enables MCP App visualization. Set to non-nil to enable.
 	UI *UiConfig `json:"ui,omitempty"`
+	// IsReadOnly indicates if this function is a query (true) or mutation (false).
+	IsReadOnly bool `json:"isReadOnly" validate:"required"`
+	// IncludeInMcpListTools specifies whether this function should be included in MCP listTools responses.
+	IncludeInMcpListTools bool `json:"includeInMcpListTools" validate:"required"`
 }
 
 // ResolverFunc is the function signature for resolving API calls.
