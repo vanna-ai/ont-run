@@ -31,24 +31,14 @@ const APP_INFO = { name: "ont-visualizer", version: "1.0.0" };
 
 /**
  * Extract a string value from data that may be wrapped in an object.
- * Handles cases like {result: "# markdown..."} or {csv: "name,email\n..."}
- * by unwrapping the string from single-field objects or known field names.
+ * Looks for the "result" field specifically, e.g. {result: "# markdown..."}.
  */
 function extractStringContent(data: unknown): string | null {
   if (typeof data === "string") return data;
   if (!data || typeof data !== "object" || Array.isArray(data)) return null;
 
   const record = data as Record<string, unknown>;
-  const entries = Object.entries(record);
-
-  // Single string field → use it directly
-  const stringEntries = entries.filter(([, v]) => typeof v === "string");
-  if (stringEntries.length === 1) return stringEntries[0][1] as string;
-
-  // Multiple fields: try well-known field names
-  for (const key of ["content", "text", "markdown", "result", "report", "csv", "data", "body", "output"]) {
-    if (typeof record[key] === "string") return record[key] as string;
-  }
+  if (typeof record.result === "string") return record.result;
 
   return null;
 }
