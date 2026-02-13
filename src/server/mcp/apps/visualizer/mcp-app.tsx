@@ -134,7 +134,11 @@ function VisualizerApp() {
             }
 
             const { _uiConfig, ...rest } = content;
-            const actualData = rest.data !== undefined ? rest.data : rest;
+            // Unwrap from known wrapper fields (data or result)
+            const actualData =
+              rest.data !== undefined ? rest.data :
+              rest.result !== undefined ? rest.result :
+              rest;
             setData(actualData);
             setError(null);
             return;
